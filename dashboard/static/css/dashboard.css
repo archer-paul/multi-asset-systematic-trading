@@ -1,0 +1,116 @@
+/* Trading Bot Dashboard - Dark Mode Styles */
+body {
+    background-color: #0d1117;
+    color: #c9d1d9;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.bg-dark {
+    background-color: #161b22 !important;
+}
+
+.card.bg-dark {
+    background-color: #21262d !important;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.table-dark {
+    background-color: #21262d;
+}
+
+.table-dark th {
+    border-top: none;
+    background-color: #30363d;
+}
+
+.navbar-dark {
+    background-color: #161b22 !important;
+    border-bottom: 1px solid #30363d;
+}
+
+.badge.bg-success {
+    background-color: #238636 !important;
+}
+
+.text-success { color: #3fb950 !important; }
+.text-danger { color: #f85149 !important; }
+.text-warning { color: #d29922 !important; }
+.text-info { color: #58a6ff !important; }
+.text-primary { color: #79c0ff !important; }
+
+.card-header {
+    background-color: #30363d;
+    border-bottom: 1px solid #21262d;
+    font-weight: 600;
+}
+
+.progress {
+    background-color: #21262d;
+}
+
+.signal-item {
+    padding: 8px;
+    margin-bottom: 8px;
+    background-color: #161b22;
+    border-radius: 6px;
+    border-left: 4px solid transparent;
+}
+
+.signal-buy { border-left-color: #3fb950; }
+.signal-sell { border-left-color: #f85149; }
+.signal-hold { border-left-color: #d29922; }
+
+.sentiment-item {
+    padding: 8px;
+    margin-bottom: 8px;
+    background-color: #161b22;
+    border-radius: 6px;
+    font-size: 0.9em;
+}
+
+.sentiment-positive { border-left: 4px solid #3fb950; }
+.sentiment-negative { border-left: 4px solid #f85149; }
+.sentiment-neutral { border-left: 4px solid #6e7681; }
+
+/* Animations */
+.card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #21262d;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #6e7681;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #8b949e;
+}
+
+/* Custom badges */
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+
+.status-active { background-color: #238636; color: white; }
+.status-inactive { background-color: #6e7681; color: white; }
+.status-error { background-color: #da3633; color: white; }

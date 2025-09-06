@@ -1,0 +1,124 @@
+# Environment variables and API keys
+.env
+.env.*
+!.env.template
+*.key
+config.json
+secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Machine Learning models
+*.pth
+*.h5
+*.pkl
+*.joblib
+*.model
+models/
+checkpoints/
+
+# Data files
+data/
+datasets/
+*.csv
+*.json
+!requirements.json
+!package.json
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+logfile
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+pg_data/
+
+# Operating System
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+*.tmp
+*.temp
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# Analytics and dashboard data
+dashboard_data/
+analytics/
+analysis/
+
+# Backups
+*.bak
+*.backup
+
+# API documentation that might contain sensitive info
+api_docs_private/
+
+# Trading specific
+trading_history/
+portfolio_backups/
+*.trade
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
