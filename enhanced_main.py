@@ -29,12 +29,33 @@ class GracefulKiller:
     """Handle graceful shutdown on SIGTERM/SIGINT"""
     def __init__(self):
         self.kill_now = False
+        self.shutdown_initiated = False
         signal.signal(signal.SIGINT, self._handle_signal)
         signal.signal(signal.SIGTERM, self._handle_signal)
+        
+        # Windows specific handling
+        if sys.platform == "win32":
+            signal.signal(signal.SIGBREAK, self._handle_signal)
     
     def _handle_signal(self, signum, frame):
-        logging.info(f"Received signal {signum}, initiating graceful shutdown...")
-        self.kill_now = True
+        if not self.shutdown_initiated:
+            self.shutdown_initiated = True
+            logging.info(f"Received signal {signum}, initiating graceful shutdown...")
+            self.kill_now = True
+            
+            # Force exit after 10 seconds if graceful shutdown fails
+            def force_exit():
+                import time
+                time.sleep(10)
+                if self.kill_now:
+                    logging.warning("Force terminating after 10 seconds...")
+                    import os
+                    os._exit(1)
+            
+            import threading
+            threading.Thread(target=force_exit, daemon=True).start()
+        else:
+            logging.warning("Shutdown already in progress...")
 
 class EnhancedTradingBot:
     """Bot de trading amélioré avec analyse multi-horizon"""
@@ -335,6 +356,10 @@ class EnhancedTradingBot:
         
         while not self.killer.kill_now and (max_cycles == 0 or self.cycle_count < max_cycles):
             try:
+                # Check for shutdown signal before starting cycle
+                if self.killer.kill_now:
+                    break
+                    
                 # Exécuter le cycle amélioré
                 cycle_result = await self.run_enhanced_cycle()
                 
@@ -343,14 +368,31 @@ class EnhancedTradingBot:
                 else:
                     logging.info(f"Enhanced cycle {self.cycle_count} completed successfully")
                 
-                # Attendre avant le prochain cycle
+                # Attendre avant le prochain cycle (with frequent checks for kill signal)
                 if not self.killer.kill_now:
                     logging.info(f"Waiting {refresh_interval}s before next enhanced cycle...")
-                    await asyncio.sleep(refresh_interval)
+                    
+                    # Sleep in smaller chunks to respond to kill signal faster
+                    sleep_chunks = max(1, refresh_interval // 10)  # Sleep in 10% chunks
+                    chunk_duration = refresh_interval / sleep_chunks
+                    
+                    for _ in range(sleep_chunks):
+                        if self.killer.kill_now:
+                            break
+                        await asyncio.sleep(chunk_duration)
                 
+            except KeyboardInterrupt:
+                logging.info("KeyboardInterrupt received, stopping...")
+                self.killer.kill_now = True
+                break
             except Exception as e:
                 logging.error(f"Critical error in enhanced cycle {self.cycle_count}: {e}", exc_info=True)
-                await asyncio.sleep(300)  # Attendre 5 minutes en cas d'erreur critique
+                
+                # Wait with kill signal checking
+                for _ in range(30):  # 5 minutes = 300s / 10s chunks
+                    if self.killer.kill_now:
+                        break
+                    await asyncio.sleep(10)
     
     async def cleanup(self):
         """Nettoyage des ressources"""

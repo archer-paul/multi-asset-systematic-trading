@@ -47,20 +47,74 @@ class AdvancedFeatureEngineering:
         features = pd.DataFrame(index=data.index)
         
         if 'Close' not in data.columns:
+            logger.warning("No 'Close' column found in data")
             return features
             
-        close = data['Close'].values
-        high = data['High'].values if 'High' in data.columns else close
-        low = data['Low'].values if 'Low' in data.columns else close
-        volume = data['Volume'].values if 'Volume' in data.columns else np.ones_like(close)
+        try:
+            # Debug data types
+            logger.debug(f"Input data types: {data.dtypes.to_dict()}")
+            logger.debug(f"Data shape: {data.shape}")
+            
+            # Clean data first - remove any inf/nan values
+            clean_data = data.replace([np.inf, -np.inf], np.nan).dropna()
+            if len(clean_data) != len(data):
+                logger.warning(f"Removed {len(data) - len(clean_data)} rows with invalid values")
+                data = clean_data
+                features = pd.DataFrame(index=data.index)
+            
+            # Ensure all arrays are float64 for TALib - with extra validation
+            close_series = data['Close'].copy()
+            high_series = data['High'].copy() if 'High' in data.columns else close_series.copy()
+            low_series = data['Low'].copy() if 'Low' in data.columns else close_series.copy() 
+            volume_series = data['Volume'].copy() if 'Volume' in data.columns else pd.Series(np.ones(len(close_series)), index=close_series.index)
+            
+            # Convert to float64 with validation
+            close = pd.to_numeric(close_series, errors='coerce').astype(np.float64).values
+            high = pd.to_numeric(high_series, errors='coerce').astype(np.float64).values
+            low = pd.to_numeric(low_series, errors='coerce').astype(np.float64).values
+            volume = pd.to_numeric(volume_series, errors='coerce').astype(np.float64).values
+            
+            # Final validation
+            if not np.isfinite(close).all():
+                logger.error("Close prices contain non-finite values after conversion")
+                close = np.nan_to_num(close, nan=100.0, posinf=100.0, neginf=100.0).astype(np.float64)
+            
+            if not np.isfinite(high).all():
+                high = np.nan_to_num(high, nan=close, posinf=close, neginf=close).astype(np.float64)
+                
+            if not np.isfinite(low).all():
+                low = np.nan_to_num(low, nan=close, posinf=close, neginf=close).astype(np.float64)
+                
+            if not np.isfinite(volume).all():
+                volume = np.nan_to_num(volume, nan=1000.0, posinf=1000.0, neginf=1000.0).astype(np.float64)
+            
+            logger.debug(f"Processed arrays - Close: {close.dtype}, High: {high.dtype}, Low: {low.dtype}, Volume: {volume.dtype}")
+            logger.debug(f"Array lengths - Close: {len(close)}, High: {len(high)}, Low: {len(low)}, Volume: {len(volume)}")
+            
+        except Exception as e:
+            logger.error(f"Error preparing data for TALib: {e}")
+            return features
         
-        # Moving Averages
+        # Moving Averages with error handling
         for period in [5, 10, 20, 50, 100, 200]:
             if len(close) > period:
-                features[f'sma_{period}'] = talib.SMA(close, timeperiod=period)
-                features[f'ema_{period}'] = talib.EMA(close, timeperiod=period)
-                features[f'price_sma_{period}_ratio'] = close / features[f'sma_{period}']
-                features[f'price_ema_{period}_ratio'] = close / features[f'ema_{period}']
+                try:
+                    sma = talib.SMA(close, timeperiod=period)
+                    ema = talib.EMA(close, timeperiod=period)
+                    
+                    features[f'sma_{period}'] = sma
+                    features[f'ema_{period}'] = ema
+                    
+                    # Safe division with zero handling
+                    features[f'price_sma_{period}_ratio'] = np.where(sma != 0, close / sma, 1.0)
+                    features[f'price_ema_{period}_ratio'] = np.where(ema != 0, close / ema, 1.0)
+                except Exception as e:
+                    logger.warning(f"Error calculating MA for period {period}: {e}")
+                    # Fill with neutral values
+                    features[f'sma_{period}'] = close
+                    features[f'ema_{period}'] = close
+                    features[f'price_sma_{period}_ratio'] = np.ones_like(close)
+                    features[f'price_ema_{period}_ratio'] = np.ones_like(close)
         
         # Bollinger Bands
         for period in [20, 50]:
@@ -71,13 +125,41 @@ class AdvancedFeatureEngineering:
                 features[f'bb_width_{period}'] = (bb_upper - bb_lower) / bb_middle
                 features[f'bb_position_{period}'] = (close - bb_lower) / (bb_upper - bb_lower)
         
-        # Momentum Indicators
-        features['rsi_14'] = talib.RSI(close, timeperiod=14)
-        features['rsi_21'] = talib.RSI(close, timeperiod=21)
-        features['cci_14'] = talib.CCI(high, low, close, timeperiod=14)
-        features['williams_r'] = talib.WILLR(high, low, close, timeperiod=14)
-        features['momentum_10'] = talib.MOM(close, timeperiod=10)
-        features['roc_10'] = talib.ROC(close, timeperiod=10)
+        # Momentum Indicators with comprehensive error handling
+        momentum_indicators = [
+            ('rsi_14', lambda: talib.RSI(close, timeperiod=14), 50.0),
+            ('rsi_21', lambda: talib.RSI(close, timeperiod=21), 50.0),
+            ('cci_14', lambda: talib.CCI(high, low, close, timeperiod=14), 0.0),
+            ('williams_r', lambda: talib.WILLR(high, low, close, timeperiod=14), -50.0),
+            ('momentum_10', lambda: talib.MOM(close, timeperiod=10), 0.0),
+            ('roc_10', lambda: talib.ROC(close, timeperiod=10), 0.0),
+        ]
+        
+        for indicator_name, calc_func, default_value in momentum_indicators:
+            try:
+                logger.debug(f"Calculating {indicator_name}")
+                
+                # Verify input arrays before calculation
+                if indicator_name.startswith('cci') or indicator_name.startswith('williams'):
+                    if not (high.dtype == np.float64 and low.dtype == np.float64 and close.dtype == np.float64):
+                        raise ValueError(f"Invalid array types for {indicator_name}")
+                    if not (np.isfinite(high).all() and np.isfinite(low).all() and np.isfinite(close).all()):
+                        raise ValueError(f"Non-finite values in arrays for {indicator_name}")
+                else:
+                    if not (close.dtype == np.float64 and np.isfinite(close).all()):
+                        raise ValueError(f"Invalid close array for {indicator_name}")
+                
+                result = calc_func()
+                if result is None:
+                    raise ValueError(f"TALib returned None for {indicator_name}")
+                
+                features[indicator_name] = result
+                logger.debug(f"Successfully calculated {indicator_name}")
+                
+            except Exception as e:
+                logger.error(f"Error calculating {indicator_name}: {e}")
+                logger.error(f"Array info - High: {high.dtype}, Low: {low.dtype}, Close: {close.dtype}")
+                features[indicator_name] = np.full_like(close, default_value, dtype=np.float64)
         
         # MACD
         macd, macd_signal, macd_hist = talib.MACD(close)
@@ -154,7 +236,12 @@ class AdvancedFeatureEngineering:
                 features[f'rolling_mean_{window}'] = close.rolling(window).mean()
                 features[f'rolling_std_{window}'] = close.rolling(window).std()
                 features[f'rolling_skew_{window}'] = close.rolling(window).skew()
-                features[f'rolling_kurt_{window}'] = close.rolling(window).kurtosis()
+                # Use scipy.stats for kurtosis calculation (pandas rolling kurtosis was removed)
+                try:
+                    from scipy import stats
+                    features[f'rolling_kurt_{window}'] = close.rolling(window).apply(lambda x: stats.kurtosis(x, nan_policy='omit') if len(x.dropna()) > 3 else 0.0, raw=False)
+                except ImportError:
+                    features[f'rolling_kurt_{window}'] = close.rolling(window).apply(lambda x: 0.0, raw=False)
                 features[f'rolling_median_{window}'] = close.rolling(window).median()
                 features[f'rolling_min_{window}'] = close.rolling(window).min()
                 features[f'rolling_max_{window}'] = close.rolling(window).max()
@@ -294,6 +381,10 @@ class TraditionalMLPredictor:
         # Clean features
         all_features = all_features.replace([np.inf, -np.inf], np.nan)
         all_features = all_features.fillna(method='ffill').fillna(0)
+        
+        # Ensure all features are numeric
+        for col in all_features.columns:
+            all_features[col] = pd.to_numeric(all_features[col], errors='coerce').fillna(0)
         
         logger.info(f"Created {len(all_features.columns)} features")
         return all_features
@@ -460,12 +551,33 @@ class TraditionalMLPredictor:
             X = aligned_data.iloc[:, :-1]
             y = aligned_data.iloc[:, -1]
             
+            # Ensure data is numeric and finite
+            X = X.select_dtypes(include=[np.number])  # Keep only numeric columns
+            X = X.replace([np.inf, -np.inf], np.nan).fillna(0)  # Replace inf with 0
+            y = pd.to_numeric(y, errors='coerce').fillna(0)  # Convert to numeric
+            
             self.feature_names = X.columns.tolist()
             logger.info(f"Training with {len(X)} samples and {len(X.columns)} features")
             
             # Feature selection
             self.selected_features = self.feature_selection(X, y)
             X_selected = X[self.selected_features]
+            
+            # Ensure proper data types
+            X_selected = X_selected.astype(np.float64)
+            y = y.astype(np.float64)
+            
+            # Final check for any remaining issues
+            if not np.isfinite(X_selected.values).all():
+                logger.warning("Non-finite values detected in features, cleaning...")
+                X_selected = X_selected.replace([np.inf, -np.inf], np.nan).fillna(0)
+            
+            if not np.isfinite(y.values).all():
+                logger.warning("Non-finite values detected in target, cleaning...")
+                y = y.replace([np.inf, -np.inf], np.nan).fillna(0)
+            
+            logger.info(f"Data types: X={X_selected.dtypes.iloc[0]}, y={y.dtype}")
+            logger.info(f"Data shapes: X={X_selected.shape}, y={y.shape}")
             
             # Select best scaler
             best_scaler_name = self.select_best_scaler(X_selected, y)

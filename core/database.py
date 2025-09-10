@@ -6,6 +6,8 @@ Handles PostgreSQL connections and operations
 import os
 import logging
 import asyncio
+import subprocess
+import time
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 import psycopg2
@@ -28,6 +30,7 @@ class DatabaseManager:
         self.redis_config = self._parse_redis_url(config.redis_url)
         self.connection = None
         self.redis_client = None
+        self.redis_process = None
     
     async def initialize(self):
         """Initialize database connections"""
@@ -110,6 +113,73 @@ class DatabaseManager:
             logger.error(f"Failed to parse Redis URL: {e}")
             return {}
     
+    def start_redis_server(self) -> bool:
+        """Start Redis server automatically if not running"""
+        try:
+            # First, check if Redis is already running
+            test_client = redis.Redis(**self.redis_config)
+            test_client.ping()
+            logger.info("Redis is already running")
+            return True
+        except:
+            pass
+        
+        try:
+            # Try to start Redis server
+            redis_paths = [
+                r"C:\Program Files\Redis\redis-server.exe",
+                "redis-server.exe",
+                "redis-server"
+            ]
+            
+            redis_exe = None
+            for path in redis_paths:
+                try:
+                    if os.path.exists(path):
+                        redis_exe = path
+                        break
+                    else:
+                        # Try to find it in PATH
+                        result = subprocess.run([path, "--version"], 
+                                              capture_output=True, 
+                                              timeout=5)
+                        if result.returncode == 0:
+                            redis_exe = path
+                            break
+                except:
+                    continue
+            
+            if not redis_exe:
+                logger.warning("Redis executable not found - continuing without auto-start")
+                return False
+            
+            logger.info(f"Starting Redis server: {redis_exe}")
+            
+            # Start Redis in background
+            self.redis_process = subprocess.Popen(
+                [redis_exe, "--port", str(self.redis_config.get('port', 6379))],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
+            
+            # Wait a moment for Redis to start
+            time.sleep(2)
+            
+            # Test connection
+            test_client = redis.Redis(**self.redis_config)
+            test_client.ping()
+            
+            logger.info("Redis server started successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to start Redis server: {e}")
+            if self.redis_process:
+                self.redis_process.terminate()
+                self.redis_process = None
+            return False
+    
     def connect_postgres(self) -> bool:
         """Connect to PostgreSQL database"""
         if not self.db_config:
@@ -141,20 +211,35 @@ class DatabaseManager:
             return False
     
     def connect_redis(self) -> bool:
-        """Connect to Redis cache"""
+        """Connect to Redis cache with auto-start"""
         if not self.redis_config:
             logger.warning("No Redis configuration found")
             return False
             
         try:
+            # Try to connect first
             self.redis_client = redis.Redis(**self.redis_config)
-            # Test connection
             self.redis_client.ping()
             logger.info("Connected to Redis cache")
             return True
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
-            return False
+            logger.warning(f"Initial Redis connection failed: {e}")
+            logger.info("Attempting to start Redis server automatically...")
+            
+            # Try to start Redis automatically
+            if self.start_redis_server():
+                try:
+                    # Try to connect again
+                    self.redis_client = redis.Redis(**self.redis_config)
+                    self.redis_client.ping()
+                    logger.info("Connected to Redis cache after auto-start")
+                    return True
+                except Exception as e2:
+                    logger.error(f"Failed to connect to Redis after auto-start: {e2}")
+                    return False
+            else:
+                logger.error("Failed to auto-start Redis server")
+                return False
     
     def initialize_tables(self):
         """Create necessary database tables"""
@@ -321,6 +406,20 @@ class DatabaseManager:
         if self.redis_client:
             self.redis_client.close()
             logger.info("Redis connection closed")
+            
+        # Stop Redis process if we started it
+        if self.redis_process:
+            try:
+                self.redis_process.terminate()
+                self.redis_process.wait(timeout=5)
+                logger.info("Redis server stopped")
+            except Exception as e:
+                logger.warning(f"Error stopping Redis server: {e}")
+                try:
+                    self.redis_process.kill()
+                except:
+                    pass
+            self.redis_process = None
     
     # Methods used by bot_orchestrator
     async def save_trading_signal(self, signal: Dict[str, Any]):

@@ -5,17 +5,22 @@ Manages all components and orchestrates the trading process
 
 import logging
 import asyncio
+import pandas as pd
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 from core.config import Config
 from core.database import DatabaseManager
+from core.data_cache import DataCacheManager
 from data.data_collector import DataCollector
-from analysis.sentiment_analyzer import SentimentAnalyzer
+from analysis.sentiment_analyzer import SentimentAnalyzer as BaseSentimentAnalyzer
+from analysis.enhanced_sentiment import EnhancedSentimentAnalyzer
+from analysis.commodities_forex import CommoditiesForexAnalyzer
 from analysis.social_media_v2 import SocialMediaAnalyzerV2 as SocialMediaAnalyzer
 from analysis.multi_timeframe import MultiTimeframeAnalyzer
 from ml.traditional_ml import TraditionalMLPredictor
 from ml.transformer_ml import TransformerMLPredictor
+from ml.parallel_trainer import ParallelMLTrainer, BatchMLTrainer
 from ml.ensemble import EnsemblePredictor
 from trading.strategy import TradingStrategy
 from trading.risk_manager import RiskManager
@@ -46,15 +51,34 @@ class TradingBotOrchestrator:
         # Core infrastructure
         self.db_manager = DatabaseManager(self.config)
         self.data_collector = DataCollector(self.config)
+        self.cache_manager = DataCacheManager(self.config)
         
         # Analysis components
-        self.sentiment_analyzer = SentimentAnalyzer(self.config)
+        base_sentiment = BaseSentimentAnalyzer(self.config)
+        self.sentiment_analyzer = EnhancedSentimentAnalyzer(self.config, base_sentiment)
+        self.commodities_forex_analyzer = CommoditiesForexAnalyzer(self.config)
         self.social_media_analyzer = SocialMediaAnalyzer(self.config) if self.config.ENABLE_SOCIAL_SENTIMENT else None
         self.multi_timeframe_analyzer = MultiTimeframeAnalyzer(self.config)
         
         # ML components
         self.traditional_ml = TraditionalMLPredictor(self.config) if self.config.ENABLE_TRADITIONAL_ML else None
         self.transformer_ml = TransformerMLPredictor(self.config) if self.config.ENABLE_TRANSFORMER_ML else None
+        
+        # Model cache for trained models per symbol with timestamps
+        self.trained_models_cache = {
+            'traditional_ml': {},  # {symbol: {'model': model_instance, 'timestamp': datetime}}
+            'transformer_ml': {},   # {symbol: {'model': model_instance, 'timestamp': datetime}}
+            'ttl_hours': 24  # Models expire after 24 hours
+        }
+        
+        # Parallel training systems
+        self.parallel_trainer = ParallelMLTrainer(
+            self.config, TraditionalMLPredictor, TransformerMLPredictor
+        )
+        self.batch_trainer = BatchMLTrainer(
+            self.config, TraditionalMLPredictor, TransformerMLPredictor
+        )
+        
         self.ensemble_predictor = EnsemblePredictor(self.config, self.traditional_ml, self.transformer_ml)
         
         # Trading components
@@ -82,18 +106,55 @@ class TradingBotOrchestrator:
             # Initialize data collection
             await self.data_collector.initialize()
             
-            # Collect historical data for training
-            self.logger.info("Collecting historical market data...")
-            historical_market_data = await self.data_collector.collect_historical_market_data(
+            # Initialize enhanced analyzers
+            await self.sentiment_analyzer.initialize()
+            await self.commodities_forex_analyzer.initialize()
+            
+            # Collect historical data for training (with caching)
+            self.logger.info("Loading historical market data (checking cache)...")
+            historical_market_data = self.cache_manager.get_historical_market_data(
                 symbols=self.config.ALL_SYMBOLS,
-                days=180  # 6 months for training
+                days=180
             )
             
-            self.logger.info("Collecting historical news data...")
-            historical_news = await self.data_collector.collect_historical_news(
+            if not historical_market_data:
+                self.logger.info("Cache miss - collecting fresh historical market data...")
+                historical_market_data = await self.data_collector.collect_historical_market_data(
+                    symbols=self.config.ALL_SYMBOLS,
+                    days=180  # 6 months for training
+                )
+                
+                # Cache the data
+                if historical_market_data:
+                    self.cache_manager.save_historical_market_data(
+                        historical_market_data, self.config.ALL_SYMBOLS, 180
+                    )
+                    self.logger.info("Historical market data cached successfully")
+            else:
+                self.logger.info(f"Historical market data loaded from cache ({len(historical_market_data)} symbols)")
+            
+            self.logger.info("Loading historical news data (checking cache)...")
+            historical_news = self.cache_manager.get_historical_news(
                 symbols=self.config.ALL_SYMBOLS,
-                days=self.config.ANALYSIS_LOOKBACK_DAYS * 4  # More news for training
+                days=self.config.ANALYSIS_LOOKBACK_DAYS * 4
             )
+            
+            if not historical_news:
+                self.logger.info("Cache miss - collecting fresh historical news data...")
+                historical_news = await self.data_collector.collect_historical_news(
+                    symbols=self.config.ALL_SYMBOLS,
+                    days=self.config.ANALYSIS_LOOKBACK_DAYS * 4  # More news for training
+                )
+                
+                # Cache the news data
+                if historical_news:
+                    self.cache_manager.save_historical_news(
+                        historical_news, self.config.ALL_SYMBOLS, 
+                        self.config.ANALYSIS_LOOKBACK_DAYS * 4
+                    )
+                    self.logger.info("Historical news data cached successfully")
+            else:
+                self.logger.info(f"Historical news data loaded from cache ({len(historical_news)} articles)")
             
             # Process sentiment for historical news
             self.logger.info("Processing sentiment analysis for historical news...")
@@ -108,9 +169,9 @@ class TradingBotOrchestrator:
                     days=30
                 )
             
-            # Train ML models
-            self.logger.info("Training machine learning models...")
-            await self._train_ml_models(historical_market_data, historical_news, social_data)
+            # Train ML models (with parallel training)
+            self.logger.info("Training machine learning models (parallel mode)...")
+            await self._train_ml_models_parallel(historical_market_data, historical_news, social_data)
             
             # Initialize portfolio
             await self.portfolio_manager.initialize()
@@ -256,60 +317,63 @@ class TradingBotOrchestrator:
                     'reasoning': 'Error in sentiment processing'
                 }
     
-    async def _train_ml_models(self, market_data: Dict, news_data: List[Dict], social_data: List[Dict]):
-        """Train all ML models with historical data"""
-        training_results = {}
+    async def _train_ml_models_parallel(self, market_data: Dict, news_data: List[Dict], social_data: List[Dict]):
+        """Train all ML models with parallel processing"""
         
-        for symbol in self.config.ALL_SYMBOLS:
-            if symbol not in market_data:
-                continue
-                
-            market_df = market_data[symbol]
-            if market_df.empty or len(market_df) < 100:
-                self.logger.warning(f"Insufficient market data for {symbol}, skipping")
-                continue
-            
-            # Get symbol-specific news and social data
-            symbol_news = [
-                item for item in news_data 
-                if symbol in item.get('companies_mentioned', [])
-            ]
-            
-            symbol_social = [
-                item for item in social_data 
-                if symbol in item.get('symbols', [])
-            ] if social_data else []
-            
-            region = self.config.get_symbol_region(symbol)
-            
-            # Train traditional ML
-            if self.traditional_ml:
-                try:
-                    trad_result = await self.traditional_ml.train_model(market_df)
-                    if trad_result:
-                        training_results[f'{symbol}_traditional'] = trad_result
-                        self.logger.info(f"Trained traditional ML for {symbol}")
-                except Exception as e:
-                    self.logger.error(f"Error training traditional ML for {symbol}: {e}")
-            
-            # Train transformer ML
-            if self.transformer_ml:
-                try:
-                    trans_result = await self.transformer_ml.train_model(
-                        symbol=symbol,
-                        market_data=market_df,
-                        news_data=symbol_news,
-                        social_data=symbol_social,
-                        region=region
-                    )
-                    if trans_result:
-                        training_results[f'{symbol}_transformer'] = trans_result
-                        self.logger.info(f"Trained transformer ML for {symbol}")
-                except Exception as e:
-                    self.logger.error(f"Error training transformer ML for {symbol}: {e}")
+        # Progress callback for training updates
+        def progress_callback(symbol: str, model_type: str, status: str, progress: float):
+            if status in ['completed', 'failed', 'error']:
+                self.logger.info(f"Training progress: {progress:.1f}% - {symbol} {model_type}: {status}")
         
-        self.logger.info(f"Model training completed. Trained {len(training_results)} models")
-        return training_results
+        self.parallel_trainer.set_progress_callback(progress_callback)
+        
+        # Run parallel training
+        training_summary = await self.parallel_trainer.train_models_parallel(
+            market_data=market_data,
+            news_data=news_data,
+            social_data=social_data,
+            train_traditional=self.config.ENABLE_TRADITIONAL_ML,
+            train_transformer=self.config.ENABLE_TRANSFORMER_ML
+        )
+        
+        # Populate model cache with trained models
+        await self._populate_model_cache(training_summary)
+        
+        self.logger.info(
+            f"Parallel training completed: {training_summary['successful']}/{training_summary['total_tasks']} "
+            f"tasks successful ({training_summary['success_rate']:.1f}%)"
+        )
+        
+        # Also try batch training for cross-symbol learning
+        if len(market_data) > 10:  # Only if we have sufficient symbols
+            self.logger.info("Starting batch training for cross-symbol learning...")
+            batch_summary = await self.batch_trainer.train_batch_models(
+                market_data=market_data,
+                news_data=news_data,
+                social_data=social_data
+            )
+            
+            if batch_summary.get('successful_models', 0) > 0:
+                self.logger.info(
+                    f"Batch training completed: {batch_summary['successful_models']}/{batch_summary['total_models']} "
+                    f"models successful"
+                )
+            
+            # Store batch models
+            if 'results' in batch_summary:
+                for model_name, result in batch_summary['results'].items():
+                    if result['success'] and 'model' in result:
+                        # Cache the batch model
+                        self.cache_manager.save_ml_model(
+                            result['model'], model_name, symbol=None,
+                            training_metadata={
+                                'training_type': 'batch_cross_symbol',
+                                'symbols_count': len(market_data),
+                                'success_rate': batch_summary.get('success_rate', 0)
+                            }
+                        )
+        
+        return training_summary
     
     async def _generate_predictions(self, market_data: Dict, news_data: List[Dict], 
                                   social_data: Dict, multi_timeframe_data: Dict) -> Dict[str, Dict]:
@@ -331,8 +395,8 @@ class TradingBotOrchestrator:
                 symbol_mtf = multi_timeframe_data.get(symbol, {})
                 region = self.config.get_symbol_region(symbol)
                 
-                # Generate ensemble prediction with multi-timeframe analysis
-                prediction = await self.ensemble_predictor.predict(
+                # Generate ensemble prediction using cached models (avoid retraining)
+                prediction = await self._get_cached_prediction(
                     symbol=symbol,
                     market_data=market_df,
                     news_data=symbol_news,
@@ -352,6 +416,121 @@ class TradingBotOrchestrator:
                 }
         
         return predictions
+    
+    async def _get_cached_prediction(self, symbol: str, market_data: pd.DataFrame,
+                                   news_data: List[Dict], social_data: Dict,
+                                   multi_timeframe_data: Dict, region: str) -> Dict[str, Any]:
+        """Get prediction using cached models to avoid retraining"""
+        try:
+            # Check if we have fresh cached models for this symbol
+            traditional_cache = self.trained_models_cache['traditional_ml'].get(symbol)
+            transformer_cache = self.trained_models_cache['transformer_ml'].get(symbol)
+            
+            # Check model freshness (TTL)
+            current_time = datetime.now()
+            ttl_hours = self.trained_models_cache['ttl_hours']
+            
+            traditional_model = None
+            transformer_model = None
+            
+            if traditional_cache:
+                time_diff = current_time - traditional_cache['timestamp']
+                if time_diff.total_seconds() / 3600 < ttl_hours:  # Within TTL
+                    traditional_model = traditional_cache['model']
+                    self.logger.debug(f"Using cached traditional ML model for {symbol} (age: {time_diff})")
+                else:
+                    self.logger.debug(f"Traditional ML model for {symbol} expired (age: {time_diff})")
+                    del self.trained_models_cache['traditional_ml'][symbol]  # Remove expired
+            
+            if transformer_cache:
+                time_diff = current_time - transformer_cache['timestamp']
+                if time_diff.total_seconds() / 3600 < ttl_hours:  # Within TTL
+                    transformer_model = transformer_cache['model']
+                    self.logger.debug(f"Using cached transformer ML model for {symbol} (age: {time_diff})")
+                else:
+                    self.logger.debug(f"Transformer ML model for {symbol} expired (age: {time_diff})")
+                    del self.trained_models_cache['transformer_ml'][symbol]  # Remove expired
+            
+            # If no cached models available, use the ensemble predictor (should be trained from initialization)
+            if not traditional_model and not transformer_model:
+                self.logger.debug(f"No cached models for {symbol}, using ensemble predictor")
+                return await self.ensemble_predictor.predict(
+                    symbol=symbol,
+                    market_data=market_data,
+                    news_data=news_data,
+                    social_data=social_data,
+                    multi_timeframe_data=multi_timeframe_data,
+                    region=region
+                )
+            
+            # Use cached models for prediction
+            base_predictions = {}
+            
+            # Traditional ML prediction from cache
+            if traditional_model and traditional_model.is_trained:
+                try:
+                    trad_pred = await traditional_model.predict(market_data)
+                    if trad_pred.get('success', False):
+                        base_predictions['traditional_ml'] = {
+                            'prediction': trad_pred['ensemble_prediction'],
+                            'confidence': trad_pred.get('ensemble_confidence', 0.5)
+                        }
+                except Exception as e:
+                    self.logger.warning(f"Traditional ML prediction failed for {symbol}: {e}")
+            
+            # Transformer ML prediction from cache
+            if transformer_model and transformer_model.is_trained:
+                try:
+                    trans_pred = await transformer_model.predict(market_data)
+                    if trans_pred.get('success', False):
+                        base_predictions['transformer_ml'] = {
+                            'prediction': trans_pred['ensemble_prediction'],
+                            'confidence': trans_pred.get('ensemble_confidence', 0.5)
+                        }
+                except Exception as e:
+                    self.logger.warning(f"Transformer ML prediction failed for {symbol}: {e}")
+            
+            # If no predictions available, return default
+            if not base_predictions:
+                return {
+                    'prediction': 2,  # Hold
+                    'confidence': 0.0,
+                    'error': 'No trained models available'
+                }
+            
+            # Simple ensemble - average predictions weighted by confidence
+            total_weight = 0
+            weighted_prediction = 0
+            total_confidence = 0
+            
+            for model_name, pred_data in base_predictions.items():
+                weight = pred_data['confidence']
+                total_weight += weight
+                weighted_prediction += pred_data['prediction'] * weight
+                total_confidence += pred_data['confidence']
+            
+            if total_weight > 0:
+                final_prediction = weighted_prediction / total_weight
+                final_confidence = total_confidence / len(base_predictions)
+            else:
+                final_prediction = 2  # Hold
+                final_confidence = 0.0
+            
+            return {
+                'prediction': final_prediction,
+                'confidence': final_confidence,
+                'base_predictions': base_predictions,
+                'ensemble_method': 'cached_models',
+                'symbol': symbol
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in cached prediction for {symbol}: {e}")
+            return {
+                'prediction': 2,  # Hold
+                'confidence': 0.0,
+                'error': str(e)
+            }
     
     async def _generate_trading_signals(self, predictions: Dict, market_data: Dict, 
                                       news_data: List[Dict], social_data: Dict, 
@@ -571,9 +750,20 @@ class TradingBotOrchestrator:
             # Close database connections
             await self.db_manager.cleanup()
             
+            # Cleanup cache
+            if hasattr(self, 'cache_manager'):
+                self.cache_manager.cleanup_expired_cache()
+                self.cache_manager.close()
+            
             # Close other resources
             if hasattr(self.data_collector, 'cleanup'):
                 await self.data_collector.cleanup()
+            
+            # Cleanup enhanced analyzers
+            if hasattr(self.sentiment_analyzer, 'cleanup'):
+                await self.sentiment_analyzer.cleanup()
+            if hasattr(self.commodities_forex_analyzer, 'cleanup'):
+                await self.commodities_forex_analyzer.cleanup()
             
             self.is_running = False
             self.logger.info("Bot cleanup completed")
@@ -603,3 +793,38 @@ class TradingBotOrchestrator:
         self.is_running = False
         await self.cleanup()
         self.logger.warning("Emergency stop completed")
+    
+    async def _populate_model_cache(self, training_summary: Dict):
+        """Populate model cache with trained models from parallel training"""
+        if 'training_results' not in training_summary:
+            self.logger.warning("No training results found in training summary")
+            return
+        
+        training_results = training_summary['training_results']
+        
+        for key, result in training_results.items():
+            if not result.get('success', False) or 'model' not in result:
+                continue
+            
+            symbol = result['symbol']
+            model_type = result['model_type']
+            model = result['model']
+            
+            # Cache traditional ML models with timestamp
+            if model_type == 'traditional' and model:
+                self.trained_models_cache['traditional_ml'][symbol] = {
+                    'model': model,
+                    'timestamp': datetime.now()
+                }
+                self.logger.debug(f"Cached traditional ML model for {symbol}")
+            
+            # Cache transformer ML models with timestamp
+            elif model_type == 'transformer' and model:
+                self.trained_models_cache['transformer_ml'][symbol] = {
+                    'model': model,
+                    'timestamp': datetime.now()
+                }
+                self.logger.debug(f"Cached transformer ML model for {symbol}")
+        
+        self.logger.info(f"Model cache populated: {len(self.trained_models_cache['traditional_ml'])} traditional, "
+                        f"{len(self.trained_models_cache['transformer_ml'])} transformer models cached")

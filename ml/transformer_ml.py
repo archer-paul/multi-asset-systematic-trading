@@ -307,8 +307,8 @@ class WaveNet(nn.Module):
         input_channels: int,
         residual_channels: int = 64,
         skip_channels: int = 64,
-        dilation_cycles: int = 3,
-        layers_per_cycle: int = 10,
+        dilation_cycles: int = 2,
+        layers_per_cycle: int = 6,
         output_dim: int = 1
     ):
         super(WaveNet, self).__init__()
@@ -329,11 +329,13 @@ class WaveNet(nn.Module):
             for layer in range(layers_per_cycle):
                 dilation = 2 ** layer
                 
-                # Dilated convolution
+                # Dilated convolution with causal padding (pad only left side)
+                # For causal convolution, we pad on the left by (kernel_size - 1) * dilation
+                padding = (2 - 1) * dilation
                 self.dilated_convs.append(
                     nn.Conv1d(
                         residual_channels, 2 * residual_channels,
-                        kernel_size=2, dilation=dilation, padding=dilation
+                        kernel_size=2, dilation=dilation, padding=0
                     )
                 )
                 
@@ -367,15 +369,33 @@ class WaveNet(nn.Module):
         for i, (dilated_conv, residual_conv, skip_conv) in enumerate(
             zip(self.dilated_convs, self.residual_convs, self.skip_convs)
         ):
+            # Apply causal padding manually
+            cycle = i // 6  # layers_per_cycle = 6
+            layer = i % 6
+            dilation = 2 ** layer
+            padding = (2 - 1) * dilation  # (kernel_size - 1) * dilation
+            
+            # Pad on the left for causal convolution
+            x_padded = F.pad(x, (padding, 0))
+            
             # Dilated convolution
-            conv_out = dilated_conv(x)
+            conv_out = dilated_conv(x_padded)
             
             # Gated activation
             filter_out, gate_out = conv_out.chunk(2, dim=1)
             conv_out = torch.tanh(filter_out) * torch.sigmoid(gate_out)
             
-            # Residual connection
+            # Residual connection with size matching
             residual_out = residual_conv(conv_out)
+            
+            # Ensure residual_out matches x size
+            if residual_out.size(2) != x.size(2):
+                if residual_out.size(2) > x.size(2):
+                    residual_out = residual_out[:, :, :x.size(2)]
+                else:
+                    padding = x.size(2) - residual_out.size(2)
+                    residual_out = F.pad(residual_out, (0, padding))
+            
             x = x + residual_out
             
             # Skip connection
@@ -401,7 +421,17 @@ class TransformerMLPredictor:
     
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        # Enhanced device detection
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+            gpu_name = torch.cuda.get_device_name(0)
+            gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            logger.info(f"Using GPU: {gpu_name} ({gpu_memory:.1f}GB)")
+        else:
+            self.device = torch.device('cpu')
+            logger.info("Using CPU (GPU not available)")
+        
         logger.info(f"Using device: {self.device}")
         
         # Model configurations
@@ -652,7 +682,10 @@ class TransformerMLPredictor:
                 break
         
         # Load best model state
-        model.load_state_dict(torch.load(f'best_{model_name}_model.pth'))
+        try:
+            model.load_state_dict(torch.load(f'best_{model_name}_model.pth', map_location=self.device))
+        except FileNotFoundError:
+            logger.warning(f"Best model file for {model_name} not found, using last epoch weights")
         
         # Calculate final metrics
         val_predictions = np.array(val_predictions)
