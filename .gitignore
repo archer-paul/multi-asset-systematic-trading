@@ -122,3 +122,14 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Test & deployment
+test_connections.py
+test_enhanced_sentiment_offline.py
+test_fixes.py
+test_gpu.py
+test_optimizations.py
+test_postgres.py
+test_postgres_simple.py
+to_do.md 
+GCP_DEPLOYMENT.md

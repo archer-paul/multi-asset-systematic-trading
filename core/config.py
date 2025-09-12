@@ -88,8 +88,10 @@ class Config:
             self.ASIA_SYMBOLS = []
             self.ALL_SYMBOLS = self.US_SYMBOLS + self.EU_SYMBOLS
         
-        # Analysis Configuration
-        self.ANALYSIS_LOOKBACK_DAYS = int(os.getenv('ANALYSIS_LOOKBACK_DAYS', '30'))
+        # Analysis Configuration - Enhanced for better ML training
+        self.ANALYSIS_LOOKBACK_DAYS = int(os.getenv('ANALYSIS_LOOKBACK_DAYS', '90'))  # 3 months default
+        self.ML_TRAINING_LOOKBACK_DAYS = int(os.getenv('ML_TRAINING_LOOKBACK_DAYS', '3650'))  # 10 years for ML training  
+        self.NEWS_LOOKBACK_DAYS = int(os.getenv('NEWS_LOOKBACK_DAYS', '60'))  # 2 months for news analysis
         self.MIN_CONFIDENCE_THRESHOLD = float(os.getenv('MIN_CONFIDENCE_THRESHOLD', '0.6'))
         
         # Validate required configuration

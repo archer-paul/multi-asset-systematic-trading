@@ -44,13 +44,22 @@ class ParallelMLTrainer:
     def _update_progress(self, symbol: str, model_type: str, status: str):
         """Update training progress"""
         with self.training_lock:
-            self.completed_tasks += 1
-            progress = (self.completed_tasks / self.total_tasks) * 100 if self.total_tasks > 0 else 0
+            # Only count as completed when actually finished (not when starting)
+            if status in ['completed', 'failed', 'error']:
+                self.completed_tasks += 1
+                # Safety check: never exceed total_tasks
+                if self.completed_tasks > self.total_tasks:
+                    logger.warning(f"completed_tasks ({self.completed_tasks}) > total_tasks ({self.total_tasks}), capping to total_tasks")
+                    self.completed_tasks = self.total_tasks
+            
+            progress = min(100.0, (self.completed_tasks / self.total_tasks) * 100) if self.total_tasks > 0 else 0
             
             if self.progress_callback:
                 self.progress_callback(symbol, model_type, status, progress)
             
-            logger.info(f"Progress: {progress:.1f}% - {symbol} {model_type}: {status}")
+            # Only log progress for completed tasks to reduce spam
+            if status in ['completed', 'failed', 'error']:
+                logger.info(f"Progress: {progress:.1f}% - {symbol} {model_type}: {status}")
     
     def _train_traditional_model(self, symbol: str, market_data: pd.DataFrame) -> Dict[str, Any]:
         """Train traditional ML model for a single symbol"""

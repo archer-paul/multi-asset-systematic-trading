@@ -114,20 +114,20 @@ class TradingBotOrchestrator:
             self.logger.info("Loading historical market data (checking cache)...")
             historical_market_data = self.cache_manager.get_historical_market_data(
                 symbols=self.config.ALL_SYMBOLS,
-                days=180
+                days=self.config.ML_TRAINING_LOOKBACK_DAYS
             )
             
             if not historical_market_data:
                 self.logger.info("Cache miss - collecting fresh historical market data...")
                 historical_market_data = await self.data_collector.collect_historical_market_data(
                     symbols=self.config.ALL_SYMBOLS,
-                    days=180  # 6 months for training
+                    days=self.config.ML_TRAINING_LOOKBACK_DAYS  # 10 years for ML training
                 )
                 
                 # Cache the data
                 if historical_market_data:
                     self.cache_manager.save_historical_market_data(
-                        historical_market_data, self.config.ALL_SYMBOLS, 180
+                        historical_market_data, self.config.ALL_SYMBOLS, self.config.ML_TRAINING_LOOKBACK_DAYS
                     )
                     self.logger.info("Historical market data cached successfully")
             else:
@@ -136,14 +136,14 @@ class TradingBotOrchestrator:
             self.logger.info("Loading historical news data (checking cache)...")
             historical_news = self.cache_manager.get_historical_news(
                 symbols=self.config.ALL_SYMBOLS,
-                days=self.config.ANALYSIS_LOOKBACK_DAYS * 4
+                days=self.config.NEWS_LOOKBACK_DAYS
             )
             
             if not historical_news:
                 self.logger.info("Cache miss - collecting fresh historical news data...")
                 historical_news = await self.data_collector.collect_historical_news(
                     symbols=self.config.ALL_SYMBOLS,
-                    days=self.config.ANALYSIS_LOOKBACK_DAYS * 4  # More news for training
+                    days=self.config.NEWS_LOOKBACK_DAYS  # News for training
                 )
                 
                 # Cache the news data

@@ -316,6 +316,7 @@ class WaveNet(nn.Module):
         self.input_channels = input_channels
         self.residual_channels = residual_channels
         self.skip_channels = skip_channels
+        self.layers_per_cycle = layers_per_cycle
         
         # Input convolution
         self.start_conv = nn.Conv1d(input_channels, residual_channels, kernel_size=1)
@@ -370,8 +371,8 @@ class WaveNet(nn.Module):
             zip(self.dilated_convs, self.residual_convs, self.skip_convs)
         ):
             # Apply causal padding manually
-            cycle = i // 6  # layers_per_cycle = 6
-            layer = i % 6
+            cycle = i // self.layers_per_cycle
+            layer = i % self.layers_per_cycle
             dilation = 2 ** layer
             padding = (2 - 1) * dilation  # (kernel_size - 1) * dilation
             
@@ -553,13 +554,13 @@ class TransformerMLPredictor:
             bidirectional=True
         ).to(self.device)
         
-        # WaveNet
+        # WaveNet - Adjusted for shorter sequences
         models['wavenet'] = WaveNet(
             input_channels=feature_dim,
-            residual_channels=64,
-            skip_channels=64,
-            dilation_cycles=2,
-            layers_per_cycle=8
+            residual_channels=32,
+            skip_channels=32,
+            dilation_cycles=1,  # Reduced cycles
+            layers_per_cycle=4  # Reduced layers per cycle
         ).to(self.device)
         
         return models
@@ -781,6 +782,16 @@ class TransformerMLPredictor:
             for model_name, model in self.models.items():
                 logger.info(f"Training {model_name}...")
                 
+                # Skip WaveNet if sequence is too short
+                if model_name == 'wavenet' and self.seq_len < 32:
+                    logger.warning(f"Skipping {model_name} training: sequence length ({self.seq_len}) too short for dilated convolutions")
+                    training_results[model_name] = {
+                        'error': f'Sequence too short ({self.seq_len}) for WaveNet architecture',
+                        'final_r2': -999.0,  # Very poor score to exclude from ensemble
+                        'skipped': True
+                    }
+                    continue
+                
                 try:
                     results = self._train_single_model(model, train_loader, val_loader, model_name)
                     training_results[model_name] = results
@@ -788,7 +799,7 @@ class TransformerMLPredictor:
                     
                 except Exception as e:
                     logger.error(f"Failed to train {model_name}: {e}")
-                    training_results[model_name] = {'error': str(e)}
+                    training_results[model_name] = {'error': str(e), 'final_r2': -999.0}
             
             self.model_performance = training_results
             self.is_trained = True
@@ -846,6 +857,13 @@ class TransformerMLPredictor:
             attention_maps = {}
             
             for model_name, model in self.models.items():
+                # Skip models that were skipped during training
+                perf = self.model_performance.get(model_name, {})
+                if perf.get('skipped', False):
+                    logger.debug(f"Skipping prediction for {model_name} (was skipped during training)")
+                    predictions[model_name] = 0.0
+                    continue
+                
                 try:
                     model.eval()
                     with torch.no_grad():
@@ -871,6 +889,12 @@ class TransformerMLPredictor:
             for model_name in predictions.keys():
                 perf = self.model_performance.get(model_name, {})
                 r2_score = perf.get('final_r2', 0)
+                
+                # Skip models that were skipped or failed badly
+                if r2_score < -100 or perf.get('skipped', False):
+                    weights[model_name] = 0
+                    continue
+                    
                 weight = max(0, r2_score)  # Use R2 as weight
                 weights[model_name] = weight
                 total_weight += weight
