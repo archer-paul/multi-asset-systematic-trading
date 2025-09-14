@@ -59,6 +59,8 @@ class TradingBotOrchestrator:
         self.commodities_forex_analyzer = CommoditiesForexAnalyzer(self.config)
         self.social_media_analyzer = SocialMediaAnalyzer(self.config) if self.config.ENABLE_SOCIAL_SENTIMENT else None
         self.multi_timeframe_analyzer = MultiTimeframeAnalyzer(self.config)
+        self.macro_economic_analyzer = MacroEconomicAnalyzer(self.config, self.sentiment_analyzer)
+        self.geopolitical_risk_analyzer = GeopoliticalRiskAnalyzer(self.config)
         
         # ML components
         self.traditional_ml = TraditionalMLPredictor(self.config) if self.config.ENABLE_TRADITIONAL_ML else None
@@ -220,6 +222,14 @@ class TradingBotOrchestrator:
                 social_sentiment = await self.social_media_analyzer.collect_current_sentiment(
                     symbols=self.config.ALL_SYMBOLS
                 )
+
+            # Step 4.5: Collect and analyze macro-economic data
+            self.logger.debug("Collecting macro-economic data...")
+            macro_economic_analysis = await self.data_collector.collect_macro_economic_data(self.macro_economic_analyzer)
+
+            # Step 4.6: Analyze geopolitical risks from macro data
+            self.logger.debug("Analyzing geopolitical risks...")
+            geopolitical_risks = self.geopolitical_risk_analyzer.analyze_geopolitical_risks(macro_economic_analysis)
             
             # Step 5: Perform multi-timeframe analysis
             self.logger.debug("Performing multi-timeframe analysis...")
@@ -252,6 +262,14 @@ class TradingBotOrchestrator:
             await self._save_cycle_results(
                 signals, execution_results, portfolio_summary, performance_metrics
             )
+
+            # Store latest analysis for the API
+            self.latest_analysis = {
+                'macro_summary': macro_economic_analysis.get('overall_sentiment'),
+                'geopolitical_risks': geopolitical_risks,
+                'top_news_sentiment': sorted([s for s in signals if s.get('source') == 'news_sentiment'], key=lambda x: x.get('confidence', 0), reverse=True)[:5],
+                'social_media_sentiment': social_sentiment
+            }
             
             # Prepare cycle result
             cycle_result = {

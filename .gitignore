@@ -133,3 +133,8 @@ test_postgres.py
 test_postgres_simple.py
 to_do.md 
 GCP_DEPLOYMENT.md
+
+# Node
+node_modules/
+.next/
+dist/

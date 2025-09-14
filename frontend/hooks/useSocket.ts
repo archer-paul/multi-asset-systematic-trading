@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const useSocket = (uri) => {
+interface UseSocketProps {
+  uri?: string;
+}
+
+const useSocket = (uri?: string) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socketInstance = io(uri, {
+    const socketUri = uri || process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
+
+    const socketInstance = io(socketUri, {
       transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -26,6 +32,11 @@ const useSocket = (uri) => {
       setIsConnected(false);
     });
 
+    socketInstance.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setIsConnected(false);
+    });
+
     return () => {
       socketInstance.disconnect();
     };
@@ -34,4 +45,5 @@ const useSocket = (uri) => {
   return { socket, isConnected };
 };
 
+export { useSocket };
 export default useSocket;

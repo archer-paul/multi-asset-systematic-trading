@@ -179,7 +179,7 @@ if ($useCloudBuild) {
     
     # Build with progress and live output
     Write-Host "[INFO] Starting Docker build (this may take several minutes)..." -ForegroundColor Yellow
-    docker build --no-cache --progress=plain -t $ImageUrl . 
+    docker build --progress=plain -t $ImageUrl . 
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] Docker build failed" -ForegroundColor Red
@@ -289,6 +289,7 @@ gcloud run deploy $ServiceName `
     --set-env-vars="NEWS_LOOKBACK_DAYS=60" `
     --set-env-vars="ENABLE_TRADITIONAL_ML=true" `
     --set-env-vars="ENABLE_TRANSFORMER_ML=false" `
+    --set-env-vars="ENABLE_KNOWLEDGE_GRAPH=true" `
     --set-env-vars="PYTHONUNBUFFERED=1" `
     --set-secrets="GEMINI_API_KEY=gemini-api-key:latest" `
     --set-secrets="NEWS_API_KEY=news-api-key:latest" `

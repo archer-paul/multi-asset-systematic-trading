@@ -406,6 +406,4 @@ export default function MachineLearningPage() {
       </motion.div>
     </Layout>
   )
-}t>
-  )
 }

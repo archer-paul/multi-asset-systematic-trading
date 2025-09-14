@@ -28,6 +28,9 @@ alembic>=1.8.0
 # Caching
 redis>=4.3.0
 
+# Google Cloud SQL Connector
+cloud-sql-python-connector[psycopg2]>=1.2.2
+
 # Data processing
 textblob>=0.17.1
 nltk>=3.7
@@ -54,6 +57,11 @@ mypy>=0.991
 # Web framework and dashboard
 flask>=2.2.0
 flask-socketio>=5.3.0
+aiohttp-wsgi>=0.10.0
+
+# Knowledge Graph dependencies
+networkx>=3.0
+vis-network>=9.1.6
 
 # Optional dependencies for advanced features
 plotly>=5.10.0

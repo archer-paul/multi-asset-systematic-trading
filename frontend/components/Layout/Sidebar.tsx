@@ -11,6 +11,8 @@ import {
   BriefcaseIcon,
   ChevronLeftIcon,
   ChartBarIcon,
+  ShareIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 
 const menuItems = [
@@ -20,6 +22,13 @@ const menuItems = [
     href: '/',
     icon: HomeIcon,
     description: 'Overview & Performance',
+  },
+  {
+    id: 'sentiment-analysis',
+    name: 'Sentiment Analysis',
+    href: '/sentiment-analysis',
+    icon: SparklesIcon,
+    description: 'Market & Geopolitical Mood',
   },
   {
     id: 'machine-learning',
@@ -41,6 +50,13 @@ const menuItems = [
     href: '/portfolio',
     icon: BriefcaseIcon,
     description: 'Holdings & Allocation',
+  },
+  {
+    id: 'knowledge-graph',
+    name: 'Knowledge Graph',
+    href: '/knowledge-graph',
+    icon: ShareIcon,
+    description: 'Economic Relations',
   },
 ]
 

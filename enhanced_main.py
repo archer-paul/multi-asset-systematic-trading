@@ -13,6 +13,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any
 from aiohttp import web
+from api.server import setup_server
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -26,7 +27,14 @@ from analysis.long_term_analyzer import LongTermAnalyzer
 from analysis.social_media_v2 import SocialMediaAnalyzerV2
 from analysis.congress_trading import CongressTradingAnalyzer
 from dashboard.recommendations_dashboard import RecommendationsDashboard
-from api.dashboard_api import dashboard_api, data_provider, init_websocket_events
+
+# Import Knowledge Graph components
+try:
+    from knowledge_graph import init_knowledge_graph
+    KNOWLEDGE_GRAPH_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"Knowledge Graph components not available: {e}")
+    KNOWLEDGE_GRAPH_AVAILABLE = False
 
 class GracefulKiller:
     """Handle graceful shutdown on SIGTERM/SIGINT"""
@@ -135,13 +143,24 @@ class EnhancedTradingBot:
             self.dashboard = RecommendationsDashboard(self.config)
             logging.info("Recommendations dashboard initialized")
             
-            # 7. Initialiser le dashboard API
-            await data_provider.initialize()
-            logging.info("Dashboard API data provider initialized")
+            # 7. Initialiser le Knowledge Graph
+            if KNOWLEDGE_GRAPH_AVAILABLE and getattr(self.config, 'ENABLE_KNOWLEDGE_GRAPH', False):
+                if init_knowledge_graph(self.config):
+                    logging.info("Knowledge Graph initialized successfully.")
+                else:
+                    logging.warning("Knowledge Graph failed to initialize, continuing without it.")
+            else:
+                logging.info("Knowledge Graph component is not active, skipping initialization.")
 
-            # 8. Initialiser le serveur web pour Cloud Run
-            await self.setup_web_server()
-            logging.info("Web server initialized for Cloud Run")
+            # 8. Initialiser le serveur web unifié
+            logging.info("Setting up unified web server...")
+            self.web_app = await setup_server(self)
+            self.web_runner = web.AppRunner(self.web_app)
+            await self.web_runner.setup()
+            port = int(os.environ.get('PORT', 8080))
+            site = web.TCPSite(self.web_runner, '0.0.0.0', port)
+            await site.start()
+            logging.info(f"Unified web server started successfully on 0.0.0.0:{port}")
             
             self.is_initialized = True
             logging.info("Enhanced Trading Bot fully initialized!")
@@ -149,73 +168,6 @@ class EnhancedTradingBot:
         except Exception as e:
             logging.error(f"Failed to initialize enhanced bot: {e}", exc_info=True)
             raise
-    
-    async def setup_web_server(self):
-        """Configure le serveur web pour Cloud Run"""
-        
-        async def health_check(request):
-            """Endpoint de santé pour Cloud Run"""
-            return web.json_response({
-                'status': 'healthy',
-                'bot_initialized': self.is_initialized,
-                'cycle_count': self.cycle_count,
-                'timestamp': datetime.now().isoformat()
-            })
-        
-        async def status(request):
-            """Endpoint de statut détaillé"""
-            return web.json_response({
-                'status': 'running',
-                'bot_initialized': self.is_initialized,
-                'cycle_count': self.cycle_count,
-                'components': {
-                    'bot_orchestrator': self.bot_orchestrator is not None,
-                    'emerging_detector': self.emerging_detector is not None,
-                    'long_term_analyzer': self.long_term_analyzer is not None,
-                    'congress_analyzer': self.congress_analyzer is not None,
-                    'dashboard': self.dashboard is not None
-                },
-                'timestamp': datetime.now().isoformat()
-            })
-        
-        # Créer l'application web avec Flask pour les API
-        try:
-            from flask import Flask
-            from flask_socketio import SocketIO
-
-            # Créer l'application Flask pour les API dashboard
-            flask_app = Flask(__name__)
-            flask_app.register_blueprint(dashboard_api)
-
-            # Initialiser SocketIO pour le temps réel
-            socketio = SocketIO(flask_app, cors_allowed_origins="*")
-            init_websocket_events(socketio)
-
-            # Créer aussi l'application aiohttp pour la compatibilité Cloud Run
-            self.web_app = web.Application()
-            self.web_app.router.add_get('/health', health_check)
-            self.web_app.router.add_get('/status', status)
-            self.web_app.router.add_get('/', health_check)  # Root endpoint
-
-            logging.info("Flask app with SocketIO initialized for dashboard API")
-
-        except ImportError as e:
-            logging.warning(f"Flask not available, using aiohttp only: {e}")
-            self.web_app = web.Application()
-            self.web_app.router.add_get('/health', health_check)
-            self.web_app.router.add_get('/status', status)
-            self.web_app.router.add_get('/', health_check)  # Root endpoint
-        
-        # Démarrer le serveur
-        port = int(os.environ.get('PORT', 8080))
-        logging.info(f"Setting up web server on port {port}")
-        
-        self.web_runner = web.AppRunner(self.web_app)
-        await self.web_runner.setup()
-        
-        site = web.TCPSite(self.web_runner, '0.0.0.0', port)
-        await site.start()
-        logging.info(f"Web server started successfully on 0.0.0.0:{port}")
     
     async def run_enhanced_cycle(self):
         """Exécute un cycle complet d'analyse multi-horizon"""

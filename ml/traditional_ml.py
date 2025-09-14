@@ -13,6 +13,8 @@ import joblib
 import warnings
 warnings.filterwarnings('ignore')
 
+import asyncio
+
 # Scikit-learn imports
 from sklearn.ensemble import (
     RandomForestRegressor, GradientBoostingRegressor, 
@@ -515,7 +517,7 @@ class TraditionalMLPredictor:
             )
             
             try:
-                grid_search.fit(X, y)
+                await asyncio.to_thread(grid_search.fit, X, y)
                 logger.info(f"Best parameters for {model_name}: {grid_search.best_params_}")
                 return grid_search.best_estimator_
             except Exception as e:
@@ -608,7 +610,7 @@ class TraditionalMLPredictor:
                     )
                     
                     # Train final model
-                    optimized_model.fit(X_scaled, y)
+                    await asyncio.to_thread(optimized_model.fit, X_scaled, y)
                     
                     # Calculate metrics
                     train_pred = optimized_model.predict(X_scaled)

@@ -21,6 +21,14 @@ from ml.ensemble import EnsemblePredictor
 from analysis.risk_manager import RiskManager
 from analysis.portfolio_analyzer import PortfolioAnalyzer
 
+# Import Knowledge Graph components
+try:
+    from knowledge_graph.kg_api import kg_api, init_knowledge_graph, init_kg_websocket_events
+    KNOWLEDGE_GRAPH_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Knowledge Graph components not available: {e}")
+    KNOWLEDGE_GRAPH_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Create Blueprint
@@ -30,64 +38,64 @@ from core.config import Config
 
 dashboard_api = Blueprint('dashboard_api', __name__)
 
-# This is a placeholder. In a real app, you'd have a shared instance of the bot.
-# For now, we create one to access its components.
-config = Config()
-try:
-    bot_orchestrator = TradingBotOrchestrator(config)
-    # You might need to run parts of the initialization if it's not running
-except Exception as e:
-    print(f"Could not initialize bot orchestrator for API: {e}")
-    bot_orchestrator = None
+_orchestrator_instance: Optional[TradingBotOrchestrator] = None
+
+def set_orchestrator_instance(instance: TradingBotOrchestrator):
+    global _orchestrator_instance
+    _orchestrator_instance = instance
+    logger.info("Bot Orchestrator instance set for Dashboard API.")
 
 @dashboard_api.route('/api/ml-dashboard', methods=['GET'])
 def get_ml_dashboard_metrics():
     """Endpoint to provide metrics for the ML dashboard."""
-    if bot_orchestrator and bot_orchestrator.ensemble_predictor:
-        # In a real scenario, you'd ensure the models are trained.
-        # For now, we call the diagnostics method.
-        # You might need to load a pre-trained model for this to work without training every time.
-        diagnostics = bot_orchestrator.ensemble_predictor.get_ensemble_diagnostics()
+    if _orchestrator_instance and _orchestrator_instance.ensemble_predictor:
+        diagnostics = _orchestrator_instance.ensemble_predictor.get_ensemble_diagnostics()
         return jsonify(diagnostics)
     return jsonify({'error': 'ML Ensemble predictor not available'}), 500
 
 @dashboard_api.route('/api/portfolio', methods=['GET'])
-def get_portfolio_data():
+async def get_portfolio_data():
     """Endpoint to provide portfolio data."""
-    # This is mock data. In a real implementation, you would fetch this
-    # from the bot_orchestrator.portfolio_manager
-    # from bot_orchestrator.portfolio_manager
-    mock_data = {
-        "holdings": [
-            {
-                "symbol": "GOOGL", "name": "Alphabet Inc.", "shares": 50, "avgPrice": 2800.50, 
-                "currentPrice": 2850.75, "value": 142537.50, "pnl": 2512.50, "pnlPercent": 1.79, 
-                "weight": 0.4, "sector": "Technology"
-            },
-            {
-                "symbol": "TSLA", "name": "Tesla, Inc.", "shares": 100, "avgPrice": 700.00, 
-                "currentPrice": 680.50, "value": 68050.00, "pnl": -1950.00, "pnlPercent": -2.78, 
-                "weight": 0.2, "sector": "Automotive"
-            },
-            {
-                "symbol": "JPM", "name": "JPMorgan Chase & Co.", "shares": 200, "avgPrice": 150.25, 
-                "currentPrice": 155.00, "value": 31000.00, "pnl": 950.00, "pnlPercent": 3.16, 
-                "weight": 0.1, "sector": "Financial"
-            }
-        ],
-        "sectorAllocation": [
-            { "sector": "Technology", "value": 0.6, "amount": 210587.5, "color": "#3b82f6" },
-            { "sector": "Automotive", "value": 0.3, "amount": 68050.00, "color": "#ef4444" },
-            { "sector": "Financial", "value": 0.1, "amount": 31000.00, "color": "#f59e0b" }
-        ],
-        "performanceHistory": [
-            { "date": "2025-09-01", "value": 300000, "benchmark": 300000 },
-            { "date": "2025-09-02", "value": 301500, "benchmark": 300500 },
-            { "date": "2025-09-03", "value": 300800, "benchmark": 301000 },
-            { "date": "2025-09-04", "value": 302500, "benchmark": 301500 }
-        ]
-    }
-    return jsonify(mock_data)
+    if _orchestrator_instance and _orchestrator_instance.portfolio_manager:
+        portfolio_summary = await _orchestrator_instance.portfolio_manager.get_portfolio_summary()
+        # You might need to adjust the format to match what the frontend expects
+        return jsonify(portfolio_summary)
+    return jsonify({'error': 'Portfolio Manager not available'}), 500
+
+@dashboard_api.route('/api/overview', methods=['GET'])
+async def get_overview_data():
+    """Endpoint to provide overview data."""
+    if _orchestrator_instance:
+        overview_data = await _orchestrator_instance.get_detailed_performance_report()
+        return jsonify(overview_data)
+    return jsonify({'error': 'Bot Orchestrator not available'}), 500
+
+@dashboard_api.route('/api/risk-management', methods=['GET'])
+async def get_risk_data():
+    """Endpoint to provide comprehensive risk management data."""
+    if _orchestrator_instance and _orchestrator_instance.risk_manager:
+        risk_summary = _orchestrator_instance.risk_manager.get_risk_summary()
+        return jsonify(risk_summary)
+    return jsonify({'error': 'Risk Manager not available'}), 500
+
+@dashboard_api.route('/api/sentiment-summary', methods=['GET'])
+async def get_sentiment_summary():
+    """Endpoint to provide a summary of all sentiment analyses."""
+    if _orchestrator_instance and _orchestrator_instance.latest_analysis:
+        return jsonify(_orchestrator_instance.latest_analysis)
+    return jsonify({'error': 'Sentiment data not available'}), 500
+
+@dashboard_api.route('/api/geopolitical-risk', methods=['GET'])
+async def get_geopolitical_risk():
+    """Endpoint to provide geopolitical risk analysis."""
+    if _orchestrator_instance and _orchestrator_instance.geopolitical_risk_analyzer and _orchestrator_instance.latest_analysis:
+        # Assuming geopolitical_risks are stored in latest_analysis
+        return jsonify(_orchestrator_instance.latest_analysis.get('geopolitical_risks', {'risks': [], 'summary': {}}))
+    return jsonify({'error': 'Geopolitical data not available'}), 500
+
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_api.route('/health')
 
 @dashboard_api.route('/api/overview', methods=['GET'])
 def get_overview_data():
@@ -583,14 +591,48 @@ async def get_risk_metrics():
         logger.error(f"Risk metrics API error: {e}")
         return jsonify({'error': str(e)}), 500
 
+@dashboard_api.route('/risk/geopolitical')
+async def get_geopolitical_risk():
+    """Get geopolitical risk analysis"""
+    # This would be a new method in the data provider
+    # For now, returning mock data
+    mock_data = {
+        "risks": [
+            {"risk_type": "trade_dispute", "source": "Reuters", "title": "US announces new tariffs on Chinese goods", "risk_score": 0.75, "impact_sectors": ["Technology", "Manufacturing"]},
+            {"risk_type": "conflict_escalation", "source": "AP", "title": "Tensions rise in South China Sea", "risk_score": 0.85, "impact_sectors": ["Energy", "Shipping"]}
+        ],
+        "summary": {
+            "overall_risk_score": 0.80,
+            "top_risk_type": "conflict_escalation",
+            "top_impacted_sectors": ["Energy", "Technology", "Shipping"]
+        }
+    }
+    return jsonify(mock_data)
+
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_api.route('/api/sentiment-summary', methods=['GET'])
+def get_sentiment_summary():
+    """Endpoint to provide a summary of all sentiment analyses."""
+    if bot_orchestrator and bot_orchestrator.latest_analysis:
+        return jsonify(bot_orchestrator.latest_analysis)
+    
+    # Fallback to mock data if no real data is available yet
+    mock_data = {
+        "macro_summary": {
+            "overall_risk_score": 0.0,
+            "top_risk_type": "N/A",
+            "top_impacted_sectors": []
+        },
+        "top_news_sentiment": [],
+        "social_media_sentiment": {
+            "trending_stocks": [],
+            "market_sentiment": 0.0
+        }
+    }
+    return jsonify(mock_data)
+
 @dashboard_api.route('/health')
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'version': '1.0.0'
-    })
 
 # WebSocket events for real-time updates
 def init_websocket_events(socketio):
@@ -634,6 +676,14 @@ def init_websocket_events(socketio):
             socketio.emit('ml_update', ml_data, room='ml_updates')
         except Exception as e:
             logger.error(f"Failed to broadcast ML update: {e}")
+
+    # Initialize Knowledge Graph WebSocket events if available
+    if KNOWLEDGE_GRAPH_AVAILABLE:
+        try:
+            init_kg_websocket_events(socketio)
+            logger.info("Knowledge Graph WebSocket events initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Knowledge Graph WebSocket events: {e}")
 
     # Store broadcast functions for external use
     socketio.broadcast_portfolio_update = broadcast_portfolio_update
