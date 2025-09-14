@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status: Active](https://img.shields.io/badge/Status-Active-green.svg)]()
 
+[🇬🇧 English Version](README.md) | [🇫🇷 Version Française](README_FR.md)
+
 An advanced algorithmic trading bot that combines **intelligent machine learning**, **multi-source sentiment analysis**, and **high-performance architecture** to make informed trading decisions across global markets.
 
 ## Key Features
@@ -101,7 +103,7 @@ enhanced_trading_bot/
 
 1. **Clone and Setup**
 ```bash
-git clone https://github.com/yourusername/enhanced-trading-bot.git
+git clone https://github.com/archer-paul/enhanced-trading-bot.git
 cd enhanced-trading-bot
 pip install -r requirements.txt
 ```

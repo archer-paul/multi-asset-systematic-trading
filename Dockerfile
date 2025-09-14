@@ -54,28 +54,52 @@ WORKDIR /app
 
 # Copy Python packages from builder
 COPY --from=builder /root/.local /home/tradingbot/.local
+
+# Fix ownership of copied files
+USER root
+RUN chown -R tradingbot:tradingbot /home/tradingbot/.local
+
+# Set environment variables for Python packages
 ENV PATH=/home/tradingbot/.local/bin:$PATH
 
-# Copy application code
+# Copy application code (as root to avoid permission issues)
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p logs cache exports dashboard_data data_sources && \
+# Debug: List copied files to verify data directory exists
+RUN echo "=== DEBUG: Listing /app contents ===" && \
+    ls -la /app/ && \
+    echo "=== DEBUG: Checking if data directory exists ===" && \
+    ls -la /app/data/ || echo "data directory not found!" && \
+    echo "=== DEBUG: Python path check ===" && \
+    python3 -c "import sys; print('\\n'.join(sys.path))"
+
+# Create necessary directories and fix all permissions
+RUN mkdir -p logs cache exports dashboard_data data/cache data/reports data/models data/backups && \
     chown -R tradingbot:tradingbot /app
 
-# Switch to non-root user
+# Switch to tradingbot user for running the application
 USER tradingbot
 
 # Environment variables
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/home/tradingbot/.local/lib/python3.11/site-packages:/app
 ENV PYTHONUNBUFFERED=1
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
-# Expose port for potential web interface
-EXPOSE 8000
+# Expose port for Cloud Run (using environment variable)
+EXPOSE ${PORT:-8080}
 
-# Default command
-CMD ["python", "enhanced_main.py"]
+# Create startup script for better Cloud Run compatibility
+RUN echo '#!/bin/bash\n\
+echo "Starting Trading Bot on port ${PORT:-8080}..."\n\
+echo "Environment check:"\n\
+echo "PORT=${PORT:-8080}"\n\
+echo "PYTHONPATH=${PYTHONPATH}"\n\
+echo "Starting enhanced_main.py..."\n\
+exec python enhanced_main.py' > /app/start.sh && \
+    chmod +x /app/start.sh
+
+# Default command with startup script
+CMD ["/app/start.sh"]

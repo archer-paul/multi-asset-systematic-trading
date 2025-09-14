@@ -1091,51 +1091,62 @@ class EnsemblePredictor:
             }
     
     def get_ensemble_diagnostics(self) -> Dict[str, Any]:
-        """Get comprehensive ensemble diagnostics"""
+        """Get comprehensive ensemble diagnostics for dashboard"""
         diagnostics = {
-            'training_status': {
-                'is_trained': self.is_trained,
-                'base_models': {
-                    'traditional_ml': self.traditional_ml.is_trained,
-                    'transformer_ml': self.transformer_ml.is_trained
-                },
-                'meta_learner': self.meta_learner.is_trained if self.meta_learner else False
-            },
+            'is_trained': self.is_trained,
             'active_strategies': self.active_strategies,
-            'prediction_history_length': len(self.prediction_history),
-            'actual_history_length': len(self.actual_history)
+            'ensemble_weights': [],
+            'model_details': []
         }
-        
-        # Model weights
-        diagnostics['current_weights'] = {
-            'bayesian': self.bayesian_averaging.get_model_weights(),
-            'adaptive': self.adaptive_weighting.get_weights()
-        }
-        
-        # Performance metrics if we have actuals
-        if len(self.actual_history) >= 10 and len(self.prediction_history) >= 10:
-            recent_predictions = [p['ensemble_result'] for p in self.prediction_history[-10:]]
-            recent_actuals = self.actual_history[-10:]
-            
-            if len(recent_predictions) == len(recent_actuals):
-                r2 = r2_score(recent_actuals, recent_predictions)
-                mse = mean_squared_error(recent_actuals, recent_predictions)
-                mae = mean_absolute_error(recent_actuals, recent_predictions)
-                
-                diagnostics['recent_performance'] = {
-                    'r2_score': float(r2),
-                    'mse': float(mse),
-                    'mae': float(mae),
-                    'n_samples': len(recent_actuals)
-                }
-        
-        # Base model diagnostics
-        if self.traditional_ml.is_trained:
-            diagnostics['traditional_ml'] = self.traditional_ml.get_model_diagnostics()
-        
-        if self.transformer_ml.is_trained:
-            diagnostics['transformer_ml'] = self.transformer_ml.get_model_diagnostics()
-        
+
+        if not self.is_trained:
+            return diagnostics
+
+        # 1. Get main ensemble weights (meta-learner level)
+        bayesian_weights = self.bayesian_averaging.get_model_weights()
+        if bayesian_weights:
+            for model_name, weight in bayesian_weights.items():
+                diagnostics['ensemble_weights'].append({
+                    'name': model_name.replace('_', ' ').title(),
+                    'weight': weight,
+                    'description': f'Weight for the {model_name} sub-ensemble based on Bayesian averaging.'
+                })
+
+        # 2. Get details from Traditional ML predictor
+        if self.traditional_ml and self.traditional_ml.is_trained:
+            trad_diags = self.traditional_ml.get_model_diagnostics()
+            trad_weights = trad_diags.get('ensemble_weights', {})
+            for model_name, weight in trad_weights.items():
+                perf = trad_diags.get('model_performance', {}).get(model_name, {})
+                diagnostics['model_details'].append({
+                    'name': model_name.replace('_', ' ').title(),
+                    'group': 'Traditional ML',
+                    'prediction': perf.get('latest_prediction', 0.0), # Placeholder, needs to be implemented
+                    'confidence': weight,
+                    'description': f'A {model_name} model. Performance (CV R2): {perf.get("cv_r2_mean", 0):.3f}'
+                })
+
+        # 3. Get details from Transformer ML predictor
+        if self.transformer_ml and self.transformer_ml.is_trained:
+            trans_diags = self.transformer_ml.get_model_diagnostics()
+            trans_weights = trans_diags.get('model_weights', {}) # Assuming this method will be added
+            if not trans_weights:
+                # Fallback if weights not directly available
+                perfs = trans_diags.get('model_performance', {})
+                total_r2 = sum(max(0, p.get('final_r2', 0)) for p in perfs.values())
+                if total_r2 > 0:
+                    trans_weights = {name: max(0, p.get('final_r2', 0)) / total_r2 for name, p in perfs.items()}
+
+            for model_name, weight in trans_weights.items():
+                perf = trans_diags.get('model_performance', {}).get(model_name, {})
+                diagnostics['model_details'].append({
+                    'name': model_name.replace('_', ' ').title(),
+                    'group': 'Transformer ML',
+                    'prediction': perf.get('latest_prediction', 0.0), # Placeholder
+                    'confidence': weight,
+                    'description': f'A {model_name} model. Performance (Val R2): {perf.get("final_r2", 0):.3f}'
+                })
+
         return diagnostics
     
     def save_ensemble(self, filepath_base: str) -> bool:

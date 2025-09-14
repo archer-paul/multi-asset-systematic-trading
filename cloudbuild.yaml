@@ -1,0 +1,55 @@
+# Cloud Build configuration for Trading Bot
+# This file enables faster builds with caching and parallel steps
+
+steps:
+  # Step 1: Build the Docker image with optimizations
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '--cache-from=europe-west1-docker.pkg.dev/multi-asset-trading-framework/trading-bot/trading-bot:latest',
+      '--tag=europe-west1-docker.pkg.dev/multi-asset-trading-framework/trading-bot/trading-bot:latest',
+      '--tag=europe-west1-docker.pkg.dev/multi-asset-trading-framework/trading-bot/trading-bot:$BUILD_ID',
+      '.'
+    ]
+    timeout: 1200s
+
+  # Step 2: Push the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push',
+      'europe-west1-docker.pkg.dev/multi-asset-trading-framework/trading-bot/trading-bot:latest'
+    ]
+
+  # Step 3: Push the tagged version
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push',
+      'europe-west1-docker.pkg.dev/multi-asset-trading-framework/trading-bot/trading-bot:$BUILD_ID'
+    ]
+
+# Build options for performance
+options:
+  # Use high-CPU machine for faster builds
+  machineType: 'E2_HIGHCPU_32'
+  
+  # Set disk size for builds with large dependencies
+  diskSizeGb: 100
+  
+  # Enable logs streaming for real-time feedback
+  logging: CLOUD_LOGGING_ONLY
+  
+  # Substitute variables
+  substitution_option: 'ALLOW_LOOSE'
+
+# Build timeout (20 minutes)
+timeout: 1200s
+
+# Available substitution variables
+substitutions:
+  _IMAGE_NAME: 'trading-bot'
+  _REGION: 'europe-west1'
+
+# Images to be pushed to registry
+images:
+  - 'europe-west1-docker.pkg.dev/multi-asset-trading-framework/trading-bot/trading-bot:latest'
+  - 'europe-west1-docker.pkg.dev/multi-asset-trading-framework/trading-bot/trading-bot:$BUILD_ID'

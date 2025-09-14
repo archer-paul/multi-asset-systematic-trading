@@ -73,7 +73,7 @@ trading_bot/
 
 1. **Cloner le repository**
 ```bash
-git clone https://github.com/yourusername/trading-bot.git
+git clone https://github.com/archer-paul/trading-bot.git
 cd trading-bot
 ```
 

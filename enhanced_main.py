@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.13
+#!/usr/bin/env python3.11
 """
 Enhanced Trading Bot - Version élargie avec univers global et analyse long terme
 Multi-horizon: trading court terme, émergent, et investissement long terme (3-5 ans)
@@ -8,9 +8,11 @@ import asyncio
 import logging
 import signal
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any
+from aiohttp import web
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -24,6 +26,7 @@ from analysis.long_term_analyzer import LongTermAnalyzer
 from analysis.social_media_v2 import SocialMediaAnalyzerV2
 from analysis.congress_trading import CongressTradingAnalyzer
 from dashboard.recommendations_dashboard import RecommendationsDashboard
+from api.dashboard_api import dashboard_api, data_provider, init_websocket_events
 
 class GracefulKiller:
     """Handle graceful shutdown on SIGTERM/SIGINT"""
@@ -75,6 +78,10 @@ class EnhancedTradingBot:
         # État
         self.is_initialized = False
         self.cycle_count = 0
+        
+        # Web server pour Cloud Run
+        self.web_app = None
+        self.web_runner = None
         
     async def initialize(self):
         """Initialise tous les composants du bot amélioré"""
@@ -128,12 +135,87 @@ class EnhancedTradingBot:
             self.dashboard = RecommendationsDashboard(self.config)
             logging.info("Recommendations dashboard initialized")
             
+            # 7. Initialiser le dashboard API
+            await data_provider.initialize()
+            logging.info("Dashboard API data provider initialized")
+
+            # 8. Initialiser le serveur web pour Cloud Run
+            await self.setup_web_server()
+            logging.info("Web server initialized for Cloud Run")
+            
             self.is_initialized = True
             logging.info("Enhanced Trading Bot fully initialized!")
             
         except Exception as e:
             logging.error(f"Failed to initialize enhanced bot: {e}", exc_info=True)
             raise
+    
+    async def setup_web_server(self):
+        """Configure le serveur web pour Cloud Run"""
+        
+        async def health_check(request):
+            """Endpoint de santé pour Cloud Run"""
+            return web.json_response({
+                'status': 'healthy',
+                'bot_initialized': self.is_initialized,
+                'cycle_count': self.cycle_count,
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        async def status(request):
+            """Endpoint de statut détaillé"""
+            return web.json_response({
+                'status': 'running',
+                'bot_initialized': self.is_initialized,
+                'cycle_count': self.cycle_count,
+                'components': {
+                    'bot_orchestrator': self.bot_orchestrator is not None,
+                    'emerging_detector': self.emerging_detector is not None,
+                    'long_term_analyzer': self.long_term_analyzer is not None,
+                    'congress_analyzer': self.congress_analyzer is not None,
+                    'dashboard': self.dashboard is not None
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        # Créer l'application web avec Flask pour les API
+        try:
+            from flask import Flask
+            from flask_socketio import SocketIO
+
+            # Créer l'application Flask pour les API dashboard
+            flask_app = Flask(__name__)
+            flask_app.register_blueprint(dashboard_api)
+
+            # Initialiser SocketIO pour le temps réel
+            socketio = SocketIO(flask_app, cors_allowed_origins="*")
+            init_websocket_events(socketio)
+
+            # Créer aussi l'application aiohttp pour la compatibilité Cloud Run
+            self.web_app = web.Application()
+            self.web_app.router.add_get('/health', health_check)
+            self.web_app.router.add_get('/status', status)
+            self.web_app.router.add_get('/', health_check)  # Root endpoint
+
+            logging.info("Flask app with SocketIO initialized for dashboard API")
+
+        except ImportError as e:
+            logging.warning(f"Flask not available, using aiohttp only: {e}")
+            self.web_app = web.Application()
+            self.web_app.router.add_get('/health', health_check)
+            self.web_app.router.add_get('/status', status)
+            self.web_app.router.add_get('/', health_check)  # Root endpoint
+        
+        # Démarrer le serveur
+        port = int(os.environ.get('PORT', 8080))
+        logging.info(f"Setting up web server on port {port}")
+        
+        self.web_runner = web.AppRunner(self.web_app)
+        await self.web_runner.setup()
+        
+        site = web.TCPSite(self.web_runner, '0.0.0.0', port)
+        await site.start()
+        logging.info(f"Web server started successfully on 0.0.0.0:{port}")
     
     async def run_enhanced_cycle(self):
         """Exécute un cycle complet d'analyse multi-horizon"""
@@ -410,6 +492,11 @@ class EnhancedTradingBot:
                     logging.info("Final dashboard exported to CSV")
                 except Exception as e:
                     logging.error(f"Dashboard export failed: {e}")
+            
+            # Cleanup web server
+            if self.web_runner:
+                await self.web_runner.cleanup()
+                logging.info("Web server cleaned up")
             
             logging.info("Enhanced bot cleanup completed")
             

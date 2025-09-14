@@ -45,13 +45,32 @@ gcloud config set compute/zone $Zone
 Write-Host "[INFO] APIs already activated manually via console" -ForegroundColor Green
 
 # Create Cloud Storage bucket for data and models
-Write-Host "[INFO] Creating Cloud Storage bucket..." -ForegroundColor Yellow
-$bucketExists = gsutil ls gs://$BucketName 2>$null
-if (-not $bucketExists) {
-    gsutil mb -l $Region gs://$BucketName
-    Write-Host "[SUCCESS] Storage bucket created: gs://$BucketName" -ForegroundColor Green
+Write-Host "[INFO] Checking Cloud Storage bucket..." -ForegroundColor Yellow
+
+# First, check if any bucket for this project already exists
+$existingBuckets = gcloud storage buckets list --project=$ProjectId --format="value(name)" 2>$null | Where-Object { $_ -match "trading-data" }
+
+if ($existingBuckets) {
+    # Use the first existing trading-data bucket
+    $BucketName = ($existingBuckets[0] -replace "gs://", "" -replace "/", "")
+    Write-Host "[INFO] Using existing storage bucket: gs://$BucketName" -ForegroundColor Blue
 } else {
-    Write-Host "[INFO] Storage bucket already exists: gs://$BucketName" -ForegroundColor Blue
+    # Try to create the main bucket name
+    $bucketResult = gcloud storage buckets create gs://$BucketName --location=$Region --project=$ProjectId 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "[SUCCESS] Storage bucket created: gs://$BucketName" -ForegroundColor Green
+    } else {
+        if ($bucketResult -match "already exists" -or $bucketResult -match "globally unique") {
+            Write-Host "[WARNING] Bucket name already exists globally. Trying with timestamp suffix..." -ForegroundColor Yellow
+            $timestamp = Get-Date -Format "yyyyMMdd-HHmm"
+            $BucketName = "$ProjectId-trading-data-$timestamp"
+            gcloud storage buckets create gs://$BucketName --location=$Region --project=$ProjectId
+            Write-Host "[SUCCESS] Storage bucket created: gs://$BucketName" -ForegroundColor Green
+        } else {
+            Write-Host "[ERROR] Failed to create bucket: $bucketResult" -ForegroundColor Red
+            exit 1
+        }
+    }
 }
 
 # Create Cloud SQL instance (PostgreSQL)
@@ -90,7 +109,7 @@ $redisExists = gcloud redis instances describe $RedisInstanceName --region=$Regi
 if (-not $redisExists) {
     gcloud redis instances create $RedisInstanceName `
         --region=$Region `
-        --size=1GB `
+        --size=1 `
         --redis-version=redis_7_0
     
     Write-Host "[SUCCESS] Memorystore Redis instance created: $RedisInstanceName" -ForegroundColor Green
@@ -120,35 +139,62 @@ gcloud auth configure-docker "$Region-docker.pkg.dev"
 Write-Host "[INFO] Building and pushing Docker image..." -ForegroundColor Yellow
 $ImageUrl = "$Region-docker.pkg.dev/$ProjectId/trading-bot/$ServiceName" + ":latest"
 
-# Check if Docker is available
+# Check if Docker is available and running
 $dockerCheck = docker --version 2>$null
 if (-not $dockerCheck) {
-    Write-Host "[WARNING] Docker not found in PATH." -ForegroundColor Yellow
+    Write-Host "[ERROR] Docker not found in PATH." -ForegroundColor Red
     Write-Host "Please ensure Docker Desktop is installed and running." -ForegroundColor Yellow
-    Write-Host "You may need to restart PowerShell after installing Docker." -ForegroundColor Yellow
+    exit 1
+}
+
+# Test if Docker daemon is running
+$dockerInfo = docker info 2>$null
+if (-not $dockerInfo) {
+    Write-Host "[ERROR] Docker daemon is not running." -ForegroundColor Red
+    Write-Host "Please start Docker Desktop and wait for it to fully initialize." -ForegroundColor Yellow
+    Write-Host "You should see the Docker icon in your system tray when it's ready." -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "[INFO] Docker is running and ready." -ForegroundColor Green
+
+# Option 1: Use Cloud Build (recommended to save local disk space)
+$useCloudBuild = $true
+
+if ($useCloudBuild) {
+    Write-Host "[INFO] Using Cloud Build to avoid local Docker build..." -ForegroundColor Yellow
+    Write-Host "[INFO] This will save disk space on your local machine" -ForegroundColor Green
     
-    # Try to find Docker in common locations
-    $dockerPaths = @(
-        "C:\Program Files\Docker\Docker\resources\bin\docker.exe",
-        "C:\ProgramData\DockerDesktop\version-bin\docker.exe"
-    )
+    # Submit to Cloud Build with real-time logs
+    gcloud builds submit --tag $ImageUrl --timeout=20m --machine-type=e2-highcpu-32 .
     
-    foreach ($path in $dockerPaths) {
-        if (Test-Path $path) {
-            Write-Host "Found Docker at: $path" -ForegroundColor Yellow
-            Write-Host "Consider adding it to your PATH or restart PowerShell" -ForegroundColor Yellow
-            break
-        }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Cloud Build failed" -ForegroundColor Red
+        exit 1
     }
+    Write-Host "[SUCCESS] Cloud Build completed and image pushed: $ImageUrl" -ForegroundColor Green
     
-    $continue = Read-Host "Continue anyway? (y/N)"
-    if ($continue -ne "y" -and $continue -ne "Y") {
+} else {
+    Write-Host "[INFO] Building Docker image locally with progress logs..." -ForegroundColor Yellow
+    
+    # Build with progress and live output
+    Write-Host "[INFO] Starting Docker build (this may take several minutes)..." -ForegroundColor Yellow
+    docker build --no-cache --progress=plain -t $ImageUrl . 
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Docker build failed" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "[SUCCESS] Docker image built successfully" -ForegroundColor Green
+
+    Write-Host "[INFO] Pushing image to Artifact Registry..." -ForegroundColor Yellow
+    docker push $ImageUrl
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Docker push failed" -ForegroundColor Red
         exit 1
     }
 }
-
-docker build -t $ImageUrl .
-docker push $ImageUrl
 
 Write-Host "[SUCCESS] Docker image pushed: $ImageUrl" -ForegroundColor Green
 
@@ -187,11 +233,40 @@ Create-Secret-If-Not-Exists "news-api-key" $envVars["NEWS_API_KEY"]
 Create-Secret-If-Not-Exists "alpha-vantage-key" $envVars["ALPHA_VANTAGE_KEY"]
 Create-Secret-If-Not-Exists "finnhub-key" $envVars["FINNHUB_KEY"]
 
+# Grant Secret Manager access to Cloud Run service account
+Write-Host "[INFO] Granting Secret Manager access to Cloud Run service account..." -ForegroundColor Yellow
+$projectNumber = gcloud projects describe $ProjectId --format="value(projectNumber)"
+$cloudRunServiceAccount = "$projectNumber-compute@developer.gserviceaccount.com"
+
+gcloud projects add-iam-policy-binding $ProjectId `
+    --member="serviceAccount:$cloudRunServiceAccount" `
+    --role="roles/secretmanager.secretAccessor"
+
+# Grant Cloud SQL Client role
+Write-Host "[INFO] Granting Cloud SQL Client role to Cloud Run service account..." -ForegroundColor Yellow
+gcloud projects add-iam-policy-binding $ProjectId `
+    --member="serviceAccount:$cloudRunServiceAccount" `
+    --role="roles/cloudsql.client"
+
+Write-Host "[SUCCESS] Secret Manager permissions granted to Cloud Run service account" -ForegroundColor Green
+
 # Get connection details
 Write-Host "[INFO] Getting connection details..." -ForegroundColor Yellow
 $DbConnectionName = gcloud sql instances describe $DbInstanceName --format="value(connectionName)"
-$RedisHost = gcloud redis instances describe $RedisInstanceName --region=$Region --format="value(host)"
-$RedisPort = gcloud redis instances describe $RedisInstanceName --region=$Region --format="value(port)"
+
+# Get Redis details only if instance exists
+$RedisHost = ""
+$RedisPort = ""
+$redisInstanceCheck = gcloud redis instances describe $RedisInstanceName --region=$Region --format="value(host)" 2>$null
+if ($redisInstanceCheck) {
+    $RedisHost = $redisInstanceCheck
+    $RedisPort = gcloud redis instances describe $RedisInstanceName --region=$Region --format="value(port)"
+    Write-Host "[INFO] Redis instance found - Host: $RedisHost, Port: $RedisPort" -ForegroundColor Green
+} else {
+    Write-Host "[WARNING] Redis instance not accessible yet. You may need to wait and update environment variables manually." -ForegroundColor Yellow
+    $RedisHost = "localhost"
+    $RedisPort = "6379"
+}
 
 # Deploy to Cloud Run
 Write-Host "[INFO] Deploying to Cloud Run..." -ForegroundColor Yellow
@@ -200,11 +275,12 @@ gcloud run deploy $ServiceName `
     --platform=managed `
     --region=$Region `
     --allow-unauthenticated `
-    --memory=2Gi `
+    --memory=4Gi `
     --cpu=2 `
     --timeout=3600 `
     --concurrency=1 `
     --max-instances=1 `
+    --port=8080 `
     --set-env-vars="DATABASE_URL=postgresql://postgres:@/$DbConnectionName/trading_bot" `
     --set-env-vars="REDIS_URL=redis://$($RedisHost):$RedisPort" `
     --set-env-vars="TRADING_MODE=fast_mode" `
@@ -213,6 +289,7 @@ gcloud run deploy $ServiceName `
     --set-env-vars="NEWS_LOOKBACK_DAYS=60" `
     --set-env-vars="ENABLE_TRADITIONAL_ML=true" `
     --set-env-vars="ENABLE_TRANSFORMER_ML=false" `
+    --set-env-vars="PYTHONUNBUFFERED=1" `
     --set-secrets="GEMINI_API_KEY=gemini-api-key:latest" `
     --set-secrets="NEWS_API_KEY=news-api-key:latest" `
     --set-secrets="ALPHA_VANTAGE_KEY=alpha-vantage-key:latest" `

@@ -1,0 +1,34 @@
+# This file tells gcloud what to ignore when deploying.
+# By default, all files are ignored, and we explicitly un-ignore the necessary ones.
+# This ensures that no unnecessary files are uploaded to Cloud Build.
+
+# Ignore everything by default
+*
+.*
+
+# Un-ignore files and directories essential for the Docker build
+!/enhanced_main.py
+!/requirements.txt
+!/Dockerfile
+!/cloudbuild.yaml
+!/setup.py
+
+# Un-ignore the core application directories
+!/core/
+!/ml/
+!/trading/
+!/analysis/
+!/api/
+!/dashboard/
+!/data/
+!/data/cache/
+!/data/models/
+!/data/reports/
+!/data/backups/
+!/analytics/
+
+# Un-ignore specific configuration files if they exist at the root
+!/.env.template
+!/CONFIGURATION_API_KEYS.md
+!/README.md
+!/README_FR.md
