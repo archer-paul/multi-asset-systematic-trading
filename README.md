@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status: Active](https://img.shields.io/badge/Status-Active-green.svg)]()
 
-[🇬🇧 English Version](README.md) | [🇫🇷 Version Française](README_FR.md)
+English Version | [Version Française](README_FR.md)
 
 An advanced algorithmic trading bot that combines **intelligent machine learning**, **multi-source sentiment analysis**, and **high-performance architecture** to make informed trading decisions across global markets.
 

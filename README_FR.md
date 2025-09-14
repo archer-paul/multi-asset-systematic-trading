@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status: Actif](https://img.shields.io/badge/Status-Actif-green.svg)]()
 
-[🇫🇷 Version Française](README_FR.md) | [🇬🇧 English Version](README.md)
+Version Française | [English Version](README.md)
 
 Un bot de trading algorithmique avancé qui combine **deux approches de machine learning** avec **l'analyse de sentiment multi-sources** pour prendre des décisions de trading éclairées sur les actions américaines et européennes.
 
