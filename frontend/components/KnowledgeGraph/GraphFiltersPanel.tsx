@@ -112,7 +112,7 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
   }
 
   return (
-    <div className="bg-dark-300 rounded-lg border border-dark-400">
+    <div className="bg-dark-300 sharp-card border border-dark-400">
       <div className="p-4 border-b border-dark-400">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white flex items-center">
@@ -122,14 +122,14 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
           <div className="flex items-center space-x-2">
             <button
               onClick={resetFilters}
-              className="p-1 rounded hover:bg-dark-200 text-dark-400 hover:text-white transition-colors"
+              className="p-1 sharp-buttonhover:bg-dark-200 text-dark-400 hover:text-white transition-colors"
               title="Réinitialiser"
             >
               <ArrowPathIcon className="w-4 h-4" />
             </button>
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className="p-1 rounded hover:bg-dark-200 text-dark-400 hover:text-white transition-colors"
+              className="p-1 sharp-buttonhover:bg-dark-200 text-dark-400 hover:text-white transition-colors"
             >
               {collapsed ? <EyeIcon className="w-4 h-4" /> : <EyeSlashIcon className="w-4 h-4" />}
             </button>
@@ -165,7 +165,7 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
                   <motion.button
                     key={option.value}
                     onClick={() => handleEntityTypeToggle(option.value)}
-                    className={`w-full p-2 rounded-lg border-2 transition-all text-left ${
+                    className={`w-full p-2 sharp-card border-2 transition-all text-left ${
                       isSelected
                         ? 'border-accent-blue bg-accent-blue/10'
                         : 'border-dark-400 hover:border-dark-300 hover:bg-dark-200'
@@ -212,7 +212,7 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
                   <motion.button
                     key={option.value}
                     onClick={() => handleRegionToggle(option.value)}
-                    className={`p-2 rounded-lg border transition-all text-left ${
+                    className={`p-2 sharp-card border transition-all text-left ${
                       isSelected
                         ? 'border-accent-blue bg-accent-blue/10'
                         : 'border-dark-400 hover:border-dark-300 hover:bg-dark-200'
@@ -252,7 +252,7 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
                   step="0.05"
                   value={filters.min_importance}
                   onChange={(e) => handleImportanceChange(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-dark-400 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-dark-400 sharp-card appearance-none cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-dark-400 mt-1">
                   <span>0</span>
@@ -261,7 +261,7 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
                 </div>
               </div>
 
-              <div className="bg-dark-200 rounded-lg p-2 text-center">
+              <div className="bg-dark-200 sharp-card p-2 text-center">
                 <div className="text-accent-blue font-bold">
                   {filters.min_importance.toFixed(2)}
                 </div>
@@ -289,7 +289,7 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
                   step="10"
                   value={filters.max_nodes}
                   onChange={(e) => handleMaxNodesChange(parseInt(e.target.value))}
-                  className="w-full h-2 bg-dark-400 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-dark-400 sharp-card appearance-none cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-dark-400 mt-1">
                   <span>20</span>
@@ -298,7 +298,7 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
                 </div>
               </div>
 
-              <div className="bg-dark-200 rounded-lg p-2 text-center">
+              <div className="bg-dark-200 sharp-card p-2 text-center">
                 <div className="text-accent-blue font-bold">
                   {filters.max_nodes}
                 </div>
@@ -310,7 +310,7 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
           </div>
 
           {/* Filter Summary */}
-          <div className="bg-dark-200 rounded-lg p-3 border border-dark-400">
+          <div className="bg-dark-200 sharp-card p-3 border border-dark-400">
             <h4 className="text-sm font-medium text-white mb-2">Résumé des filtres</h4>
             <div className="space-y-1 text-xs">
               <div className="flex justify-between">

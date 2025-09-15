@@ -101,12 +101,12 @@ export default function MetricCard({
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`bg-dark-200 rounded-xl border border-dark-300 ${sizeClasses[size]}`}
+        className={`bg-dark-200 border border-dark-300 ${sizeClasses[size]} sharp-card`}
       >
         <div className="animate-pulse">
-          <div className="h-4 bg-dark-300 rounded mb-3"></div>
-          <div className="h-8 bg-dark-300 rounded mb-2"></div>
-          <div className="h-3 bg-dark-300 rounded w-1/2"></div>
+          <div className="h-4 bg-dark-300 mb-3"></div>
+          <div className="h-8 bg-dark-300 mb-2"></div>
+          <div className="h-3 bg-dark-300 w-1/2"></div>
         </div>
       </motion.div>
     )
@@ -119,9 +119,10 @@ export default function MetricCard({
       whileHover={{ scale: 1.02 }}
       transition={{ duration: 0.2 }}
       className={`
-        bg-dark-200 rounded-xl border border-dark-300 ${sizeClasses[size]}
+        bg-dark-200 border border-dark-300 ${sizeClasses[size]}
         hover:border-dark-400 transition-all duration-200
         group relative overflow-hidden
+        sharp-card cyberpunk-border
       `}
     >
       {/* Background gradient effect */}

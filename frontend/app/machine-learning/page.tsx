@@ -91,7 +91,7 @@ export default function MachineLearningPage() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-dark-200 border border-dark-300 rounded-lg p-4 shadow-lg">
+        <div className="bg-dark-200 border border-dark-300 sharp-card p-4 shadow-lg">
           <p className="text-white font-medium mb-2">{label}</p>
           {payload.map((entry: any, index: number) => (
             <div key={index} className="flex items-center space-x-2">
@@ -191,7 +191,7 @@ export default function MachineLearningPage() {
         {/* Model Performance Comparison */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Model Accuracy Comparison */}
-          <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+          <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <ChartBarIcon className="w-5 h-5 mr-2 text-accent-blue" />
               Model Performance Metrics
@@ -212,7 +212,7 @@ export default function MachineLearningPage() {
           </div>
 
           {/* Ensemble Weights */}
-          <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+          <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <CircleStackIcon className="w-5 h-5 mr-2 text-accent-purple" />
               Meta-Learner Model Weights
@@ -259,7 +259,7 @@ export default function MachineLearningPage() {
 
         {/* Real-time Predictions */}
         <motion.div variants={itemVariants}>
-          <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+          <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <BoltIcon className="w-5 h-5 mr-2 text-accent-yellow" />
               Real-time Prediction Confidence
@@ -296,7 +296,7 @@ export default function MachineLearningPage() {
         <motion.div variants={itemVariants}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Training Progress */}
-            <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+            <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
                 <CogIcon className="w-5 h-5 mr-2 text-accent-blue" />
                 Training Status
@@ -311,7 +311,7 @@ export default function MachineLearningPage() {
                   <div key={index} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-white font-medium">{item.model}</span>
-                      <span className={`text-xs px-2 py-1 rounded ${
+                      <span className={`text-xs px-2 py-1 sharp-button ${
                         item.status === 'Complete' ? 'bg-trading-profit/20 text-trading-profit' :
                         item.status === 'Training' ? 'bg-accent-blue/20 text-accent-blue' :
                         'bg-dark-400/20 text-dark-500'
@@ -320,9 +320,9 @@ export default function MachineLearningPage() {
                       </span>
                     </div>
 
-                    <div className="w-full bg-dark-300 rounded-full h-2">
+                    <div className="w-full bg-dark-300 h-2">
                       <motion.div
-                        className={`h-2 rounded-full ${
+                        className={`h-2 ${
                           item.status === 'Complete' ? 'bg-trading-profit' :
                           item.status === 'Training' ? 'bg-accent-blue' :
                           'bg-dark-400'
@@ -343,7 +343,7 @@ export default function MachineLearningPage() {
             </div>
 
             {/* Feature Importance */}
-            <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+            <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
               <h3 className="text-lg font-semibold text-white mb-4">Feature Importance</h3>
 
               <div className="space-y-3">
@@ -361,9 +361,9 @@ export default function MachineLearningPage() {
                         {(item.importance * 100).toFixed(0)}%
                       </span>
                     </div>
-                    <div className="w-full bg-dark-300 rounded-full h-1.5">
+                    <div className="w-full bg-dark-300 h-1.5">
                       <motion.div
-                        className="h-1.5 bg-gradient-to-r from-accent-blue to-accent-purple rounded-full"
+                        className="h-1.5 bg-gradient-to-r from-accent-blue to-accent-purple"
                         initial={{ width: 0 }}
                         animate={{ width: `${item.importance * 100}%` }}
                         transition={{ duration: 1, delay: index * 0.1 }}
@@ -375,7 +375,7 @@ export default function MachineLearningPage() {
             </div>
 
             {/* Model Health */}
-            <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+            <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
               <h3 className="text-lg font-semibold text-white mb-4">Model Health</h3>
 
               <div className="space-y-4">

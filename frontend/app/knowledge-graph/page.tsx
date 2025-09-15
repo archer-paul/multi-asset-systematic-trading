@@ -181,16 +181,16 @@ const KnowledgeGraphPage: FC = () => {
           'supplies_to': 20
         },
         top_entities: [
-          ['USD', 0.95],
-          ['AAPL', 0.89],
-          ['EUR', 0.87],
-          ['BTC', 0.85],
-          ['MSFT', 0.83],
-          ['GOLD', 0.81],
-          ['United States', 0.79],
-          ['GOOGL', 0.77],
-          ['China', 0.75],
-          ['Technology', 0.73]
+          ['USD', 0.95] as [string, number],
+          ['AAPL', 0.89] as [string, number],
+          ['EUR', 0.87] as [string, number],
+          ['BTC', 0.85] as [string, number],
+          ['MSFT', 0.83] as [string, number],
+          ['GOLD', 0.81] as [string, number],
+          ['United States', 0.79] as [string, number],
+          ['GOOGL', 0.77] as [string, number],
+          ['China', 0.75] as [string, number],
+          ['Technology', 0.73] as [string, number]
         ]
       }
       setStats(mockStats)
@@ -229,11 +229,17 @@ const KnowledgeGraphPage: FC = () => {
             {
               target: 'tech_sector',
               target_name: 'Technology Sector',
-              relation_type: 'belongs_to',
+              type: 'belongs_to',
               strength: 0.9
             }
           ],
-          incoming: []
+          incoming: [],
+          total_connections: 1
+        },
+        centrality_metrics: {
+          degree_centrality: 0.85,
+          betweenness_centrality: 0.72,
+          closeness_centrality: 0.68
         }
       }
 
@@ -260,23 +266,37 @@ const KnowledgeGraphPage: FC = () => {
 
       // Fallback to mock cascade analysis
       const mockCascadeResults = {
-        original_entity: analysisData.entity,
-        analysis_type: analysisData.type,
-        magnitude: analysisData.magnitude,
+        event: {
+          type: analysisData.type,
+          entity: analysisData.entity,
+          magnitude: analysisData.magnitude
+        },
         total_effects: 15,
-        direct_effects: [
-          { entity: 'MSFT', effect: 0.25, confidence: 0.8 },
-          { entity: 'GOOGL', effect: 0.20, confidence: 0.7 },
-          { entity: 'Tech Sector', effect: 0.35, confidence: 0.9 }
+        effects_by_horizon: {
+          immediate: 5,
+          short_term: 4,
+          medium_term: 4,
+          long_term: 2
+        },
+        top_impacts: [
+          {
+            affected_entity: 'MSFT',
+            impact_magnitude: 0.25,
+            confidence: 0.8,
+            time_horizon: 'immediate',
+            explanation: 'Corrélation directe dans le secteur technologique',
+            propagation_path: ['AAPL', 'Technology Sector', 'MSFT']
+          },
+          {
+            affected_entity: 'GOOGL',
+            impact_magnitude: 0.20,
+            confidence: 0.7,
+            time_horizon: 'short_term',
+            explanation: 'Effet de contagion sectorielle',
+            propagation_path: ['AAPL', 'Technology Sector', 'GOOGL']
+          }
         ],
-        indirect_effects: [
-          { entity: 'NFLX', effect: 0.15, confidence: 0.6 },
-          { entity: 'AMZN', effect: 0.18, confidence: 0.65 }
-        ],
-        cascading_paths: [
-          ['AAPL', 'Tech Sector', 'MSFT'],
-          ['AAPL', 'USD', 'Global Markets']
-        ]
+        analysis_timestamp: new Date().toISOString()
       }
 
       setCascadeResults(mockCascadeResults)
@@ -313,7 +333,7 @@ const KnowledgeGraphPage: FC = () => {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-accent-blue to-accent-purple rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-accent-blue to-accent-purple sharp-button flex items-center justify-center">
                 <ShareIcon className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -324,7 +344,7 @@ const KnowledgeGraphPage: FC = () => {
 
             <div className="flex items-center space-x-2">
               {/* Connection Status */}
-              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
+              <div className={`flex items-center space-x-2 px-3 py-1 sharp-button text-sm ${
                 isConnected ? 'bg-trading-profit/20 text-trading-profit' : 'bg-trading-loss/20 text-trading-loss'
               }`}>
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-trading-profit' : 'bg-trading-loss'}`} />
@@ -335,7 +355,7 @@ const KnowledgeGraphPage: FC = () => {
               <div className="flex items-center space-x-1">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-2 sharp-button transition-colors ${
                     showFilters ? 'bg-accent-blue text-white' : 'bg-dark-300 text-dark-400 hover:text-white'
                   }`}
                   title="Filtres"
@@ -345,7 +365,7 @@ const KnowledgeGraphPage: FC = () => {
 
                 <button
                   onClick={() => setShowStats(!showStats)}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-2 sharp-button transition-colors ${
                     showStats ? 'bg-accent-blue text-white' : 'bg-dark-300 text-dark-400 hover:text-white'
                   }`}
                   title="Statistiques"
@@ -355,7 +375,7 @@ const KnowledgeGraphPage: FC = () => {
 
                 <button
                   onClick={togglePhysics}
-                  className="p-2 rounded-lg bg-dark-300 text-dark-400 hover:text-white transition-colors"
+                  className="p-2 sharp-button bg-dark-300 text-dark-400 hover:text-white transition-colors"
                   title={isPhysicsEnabled ? 'Désactiver physique' : 'Activer physique'}
                 >
                   {isPhysicsEnabled ? <PauseIcon className="w-5 h-5" /> : <PlayIcon className="w-5 h-5" />}
@@ -363,7 +383,7 @@ const KnowledgeGraphPage: FC = () => {
 
                 <button
                   onClick={fitNetwork}
-                  className="p-2 rounded-lg bg-dark-300 text-dark-400 hover:text-white transition-colors"
+                  className="p-2 sharp-button bg-dark-300 text-dark-400 hover:text-white transition-colors"
                   title="Ajuster la vue"
                 >
                   <ArrowsPointingOutIcon className="w-5 h-5" />
@@ -371,7 +391,7 @@ const KnowledgeGraphPage: FC = () => {
 
                 <button
                   onClick={exportToPNG}
-                  className="p-2 rounded-lg bg-dark-300 text-dark-400 hover:text-white transition-colors"
+                  className="p-2 sharp-button bg-dark-300 text-dark-400 hover:text-white transition-colors"
                   title="Exporter en PNG"
                 >
                   <ArrowDownTrayIcon className="w-5 h-5" />
@@ -468,7 +488,7 @@ const KnowledgeGraphPage: FC = () => {
                 <h3 className="text-lg font-semibold text-white">Analyse des Effets</h3>
                 <button
                   onClick={() => setShowCascadeAnalysis(false)}
-                  className="p-1 rounded hover:bg-dark-300 text-dark-400 hover:text-white"
+                  className="p-1 sharp-button hover:bg-dark-300 text-dark-400 hover:text-white"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -478,7 +498,7 @@ const KnowledgeGraphPage: FC = () => {
 
               <div className="flex-1 overflow-y-auto p-4">
                 {/* Event Info */}
-                <div className="bg-dark-300 rounded-lg p-4 mb-4">
+                <div className="bg-dark-300 sharp-card p-4 mb-4">
                   <h4 className="font-semibold text-white mb-2">Événement analysé</h4>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
@@ -502,11 +522,11 @@ const KnowledgeGraphPage: FC = () => {
 
                 {/* Summary Stats */}
                 <div className="grid grid-cols-2 gap-2 mb-4">
-                  <div className="bg-dark-300 rounded-lg p-3 text-center">
+                  <div className="bg-dark-300 sharp-card p-3 text-center">
                     <div className="text-2xl font-bold text-accent-blue">{cascadeResults.total_effects}</div>
                     <div className="text-xs text-dark-400">Effets totaux</div>
                   </div>
-                  <div className="bg-dark-300 rounded-lg p-3 text-center">
+                  <div className="bg-dark-300 sharp-card p-3 text-center">
                     <div className="text-2xl font-bold text-orange-400">{cascadeResults.effects_by_horizon.immediate}</div>
                     <div className="text-xs text-dark-400">Immédiats</div>
                   </div>
@@ -521,7 +541,7 @@ const KnowledgeGraphPage: FC = () => {
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className={`bg-dark-300 rounded-lg p-3 border-l-4 ${
+                      className={`bg-dark-300 sharp-card p-3 border-l-4 ${
                         impact.impact_magnitude > 0
                           ? 'border-trading-profit'
                           : impact.impact_magnitude < 0
@@ -548,7 +568,7 @@ const KnowledgeGraphPage: FC = () => {
                       </div>
 
                       <div className="flex justify-between items-center text-xs">
-                        <span className={`px-2 py-1 rounded ${
+                        <span className={`px-2 py-1 sharp-button ${
                           impact.time_horizon === 'immediate' ? 'bg-red-900 text-red-200' :
                           impact.time_horizon === 'short_term' ? 'bg-orange-900 text-orange-200' :
                           impact.time_horizon === 'medium_term' ? 'bg-yellow-900 text-yellow-200' :

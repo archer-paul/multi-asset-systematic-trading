@@ -73,7 +73,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
   const densityInfo = getDensityLevel(stats.density)
 
   return (
-    <div className="bg-dark-300 rounded-lg border border-dark-400">
+    <div className="bg-dark-300 sharp-card border border-dark-400">
       <div className="p-4 border-b border-dark-400">
         <h3 className="text-lg font-semibold text-white flex items-center">
           <ChartBarIcon className="w-5 h-5 mr-2 text-accent-blue" />
@@ -87,7 +87,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-dark-200 rounded-lg p-4 text-center"
+            className="bg-dark-200 sharp-card p-4 text-center"
           >
             <CircleStackIcon className="w-6 h-6 mx-auto text-accent-blue mb-2" />
             <div className="text-2xl font-bold text-white">{stats.nodes}</div>
@@ -98,7 +98,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 }}
-            className="bg-dark-200 rounded-lg p-4 text-center"
+            className="bg-dark-200 sharp-card p-4 text-center"
           >
             <ArrowsRightLeftIcon className="w-6 h-6 mx-auto text-accent-purple mb-2" />
             <div className="text-2xl font-bold text-white">{stats.edges}</div>
@@ -108,7 +108,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
 
         {/* Network Properties */}
         <div className="space-y-3">
-          <div className="bg-dark-200 rounded-lg p-3">
+          <div className="bg-dark-200 sharp-card p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-dark-400 flex items-center">
                 <LinkIcon className="w-4 h-4 mr-2" />
@@ -121,7 +121,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
             </div>
           </div>
 
-          <div className="bg-dark-200 rounded-lg p-3">
+          <div className="bg-dark-200 sharp-card p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-dark-400 flex items-center">
                 <GlobeAltIcon className="w-4 h-4 mr-2" />
@@ -152,7 +152,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between bg-dark-200 rounded-lg p-2"
+                  className="flex items-center justify-between bg-dark-200 sharp-card p-2"
                 >
                   <div className="flex items-center space-x-2">
                     <span className="text-lg">{entityTypeIcons[type] || '📍'}</span>
@@ -189,7 +189,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between bg-dark-200 rounded-lg p-2"
+                  className="flex items-center justify-between bg-dark-200 sharp-card p-2"
                 >
                   <div className="flex-1">
                     <div className={`text-xs font-medium ${relationshipTypeColors[type] || 'text-white'}`}>
@@ -227,7 +227,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="flex items-center justify-between bg-dark-200 rounded-lg p-3"
+                className="flex items-center justify-between bg-dark-200 sharp-card p-3"
               >
                 <div className="flex items-center space-x-2">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -259,7 +259,7 @@ export default function GraphStatsPanel({ stats }: GraphStatsPanelProps) {
         </div>
 
         {/* Network Health Indicator */}
-        <div className="bg-gradient-to-r from-dark-300 to-dark-200 rounded-lg p-4 border border-dark-400">
+        <div className="bg-gradient-to-r from-dark-300 to-dark-200 sharp-card p-4 border border-dark-400">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-sm font-medium text-white mb-1">Santé du réseau</h4>

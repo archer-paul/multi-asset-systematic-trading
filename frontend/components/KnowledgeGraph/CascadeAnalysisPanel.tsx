@@ -80,7 +80,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
   const magnitudeInfo = getMagnitudeLabel(magnitude)
 
   return (
-    <div className="bg-dark-300 rounded-lg border border-dark-400">
+    <div className="bg-dark-300 sharp-card border border-dark-400">
       <div className="p-4 border-b border-dark-400">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white flex items-center">
@@ -89,7 +89,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
           </h3>
           <button
             onClick={() => setShowHelp(!showHelp)}
-            className="p-1 rounded hover:bg-dark-200 text-dark-400 hover:text-white transition-colors"
+            className="p-1 sharp-buttonhover:bg-dark-200 text-dark-400 hover:text-white transition-colors"
           >
             <InformationCircleIcon className="w-5 h-5" />
           </button>
@@ -100,7 +100,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mt-3 p-3 bg-blue-900/20 rounded-lg border border-blue-700/50"
+            className="mt-3 p-3 bg-blue-900/20 sharp-card border border-blue-700/50"
           >
             <p className="text-sm text-blue-200">
               L'analyse d'impact prédit comment un événement économique ou géopolitique
@@ -122,7 +122,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
               <motion.button
                 key={eventType.value}
                 onClick={() => setSelectedEventType(eventType.value)}
-                className={`p-3 rounded-lg border-2 transition-all text-left ${
+                className={`p-3 sharp-card border-2 transition-all text-left ${
                   selectedEventType === eventType.value
                     ? 'border-accent-blue bg-accent-blue/10 shadow-md'
                     : 'border-dark-400 hover:border-dark-300 hover:bg-dark-200'
@@ -160,7 +160,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setUseCustomEntity(false)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${
+                className={`px-3 py-1 sharp-buttontext-sm transition-colors ${
                   !useCustomEntity
                     ? 'bg-accent-blue text-white'
                     : 'bg-dark-400 text-dark-200 hover:text-white'
@@ -170,7 +170,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
               </button>
               <button
                 onClick={() => setUseCustomEntity(true)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${
+                className={`px-3 py-1 sharp-buttontext-sm transition-colors ${
                   useCustomEntity
                     ? 'bg-accent-blue text-white'
                     : 'bg-dark-400 text-dark-200 hover:text-white'
@@ -187,7 +187,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
                 value={customEntity}
                 onChange={(e) => setCustomEntity(e.target.value)}
                 placeholder="ex: GOOGL, BTC, OIL..."
-                className="w-full px-3 py-2 bg-dark-200 border border-dark-400 rounded-lg text-white text-sm focus:border-accent-blue focus:ring-1 focus:ring-accent-blue outline-none"
+                className="w-full px-3 py-2 bg-dark-200 border border-dark-400 sharp-card text-white text-sm focus:border-accent-blue focus:ring-1 focus:ring-accent-blue outline-none"
               />
             ) : (
               <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
@@ -195,7 +195,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
                   <motion.button
                     key={entity.id}
                     onClick={() => setSelectedEntity(entity.id)}
-                    className={`p-2 rounded-lg border transition-all text-left ${
+                    className={`p-2 sharp-card border transition-all text-left ${
                       selectedEntity === entity.id
                         ? 'border-accent-blue bg-accent-blue/10'
                         : 'border-dark-400 hover:border-dark-300 hover:bg-dark-200'
@@ -239,7 +239,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
                 step="0.1"
                 value={magnitude}
                 onChange={(e) => setMagnitude(parseFloat(e.target.value))}
-                className="w-full h-2 bg-dark-400 rounded-lg appearance-none cursor-pointer slider"
+                className="w-full h-2 bg-dark-400 sharp-card appearance-none cursor-pointer slider"
                 style={{
                   background: `linear-gradient(to right,
                     #ef4444 0%,
@@ -257,7 +257,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
               </div>
             </div>
 
-            <div className="bg-dark-200 rounded-lg p-3 text-center">
+            <div className="bg-dark-200 sharp-card p-3 text-center">
               <div className={`text-lg font-bold ${magnitudeInfo.color}`}>
                 {magnitude > 0 ? '+' : ''}{magnitude.toFixed(1)}
               </div>
@@ -270,7 +270,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
 
         {/* Current Selection Summary */}
         {selectedEventInfo && (
-          <div className="bg-dark-200 rounded-lg p-3 border border-dark-400">
+          <div className="bg-dark-200 sharp-card p-3 border border-dark-400">
             <h4 className="text-sm font-medium text-white mb-2">Analyse prévue</h4>
             <div className="space-y-1 text-sm">
               <div className="flex items-center justify-between">
@@ -300,7 +300,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
         <motion.button
           onClick={handleAnalyze}
           disabled={isAnalyzing || (!useCustomEntity && !selectedEntity) || (useCustomEntity && !customEntity.trim())}
-          className={`w-full py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center space-x-2 ${
+          className={`w-full py-3 px-4 sharp-card font-medium transition-all flex items-center justify-center space-x-2 ${
             isAnalyzing
               ? 'bg-yellow-600 text-white cursor-not-allowed'
               : ((!useCustomEntity && !selectedEntity) || (useCustomEntity && !customEntity.trim()))
@@ -328,7 +328,7 @@ export default function CascadeAnalysisPanel({ onAnalyze, isAnalyzing }: Cascade
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start space-x-2 p-3 bg-yellow-900/20 rounded-lg border border-yellow-700/50"
+            className="flex items-start space-x-2 p-3 bg-yellow-900/20 sharp-card border border-yellow-700/50"
           >
             <ExclamationTriangleIcon className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-yellow-200">

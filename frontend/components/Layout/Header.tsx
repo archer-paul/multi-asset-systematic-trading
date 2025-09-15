@@ -79,7 +79,7 @@ export default function Header({ title, subtitle, isConnected = true }: HeaderPr
                 repeat: isConnected ? Infinity : 0
               }}
               className={`
-                flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium
+                flex items-center space-x-2 px-3 py-1.5 sharp-button text-xs font-medium
                 ${isConnected
                   ? 'bg-trading-profit/20 text-trading-profit border border-trading-profit/30'
                   : 'bg-trading-loss/20 text-trading-loss border border-trading-loss/30'
@@ -117,7 +117,7 @@ export default function Header({ title, subtitle, isConnected = true }: HeaderPr
             animate={{ opacity: [1, 0.5, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <div className="w-2 h-2 bg-red-500"></div>
             <span className="text-xs text-red-500 font-medium">LIVE</span>
           </motion.div>
         </motion.div>

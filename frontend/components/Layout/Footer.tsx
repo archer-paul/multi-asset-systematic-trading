@@ -10,7 +10,7 @@ const socialLinks = [
   {
     name: 'Email',
     href: 'mailto:paul.erwan.archer@gmail.com',
-    icon: EnvelopeIcon,
+    icon: () => <EnvelopeIcon className="w-5 h-5" />,
     color: 'hover:text-red-400',
   },
   {
@@ -36,7 +36,7 @@ const socialLinks = [
   {
     name: 'Website',
     href: 'https://paul-archer.vercel.app/',
-    icon: GlobeAltIcon,
+    icon: () => <GlobeAltIcon className="w-5 h-5" />,
     color: 'hover:text-green-400',
   },
 ]
@@ -73,9 +73,10 @@ export default function Footer() {
                 target={link.href.startsWith('mailto') ? '_self' : '_blank'}
                 rel={link.href.startsWith('mailto') ? '' : 'noopener noreferrer'}
                 className={`
-                  p-2 rounded-lg transition-all duration-200 text-dark-500
+                  p-2 transition-all duration-200 text-dark-500
                   hover:bg-dark-300 ${link.color}
                   transform hover:scale-110
+                  border border-transparent hover:border-dark-400
                 `}
                 title={link.name}
                 initial={{ opacity: 0, y: 10 }}

@@ -50,7 +50,7 @@ export default function PerformanceChart({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-dark-200 border border-dark-300 rounded-lg p-4 shadow-lg">
+        <div className="bg-dark-200 border border-dark-300 sharp-card p-4 shadow-lg">
           <p className="text-white font-medium mb-2">{label}</p>
           <div className="space-y-1">
             {payload.map((entry: any, index: number) => (
@@ -86,7 +86,7 @@ export default function PerformanceChart({
 
   if (loading) {
     return (
-      <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+      <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
         <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
         <div className="flex items-center justify-center h-96">
           <div className="loading-dots">
@@ -105,7 +105,7 @@ export default function PerformanceChart({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="bg-dark-200 rounded-xl p-6 border border-dark-300"
+      className="bg-dark-200 sharp-card p-6 border border-dark-300"
     >
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-white">{title}</h3>

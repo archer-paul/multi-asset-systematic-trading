@@ -172,7 +172,7 @@ export default function DashboardPage() {
         <motion.div variants={itemVariants}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Activity */}
-            <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+            <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
               <h3 className="text-lg font-semibold text-white mb-4">Recent Activity</h3>
               <div className="space-y-3">
                 {[
@@ -185,11 +185,11 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between p-3 bg-dark-300/50 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-dark-300/50 sharp-card"
                   >
                     <div className="flex items-center space-x-3">
                       <span className={`
-                        px-2 py-1 rounded text-xs font-medium
+                        px-2 py-1 text-xs font-medium sharp-button
                         ${trade.action === 'BUY' ? 'bg-trading-profit/20 text-trading-profit' : 'bg-trading-loss/20 text-trading-loss'}
                       `}>
                         {trade.action}
@@ -207,7 +207,7 @@ export default function DashboardPage() {
             </div>
 
             {/* System Status */}
-            <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+            <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
               <h3 className="text-lg font-semibold text-white mb-4">System Status</h3>
               <div className="space-y-4">
                 {[
@@ -224,11 +224,11 @@ export default function DashboardPage() {
                     className="flex items-center justify-between"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-trading-profit rounded-full status-online"></div>
+                      <div className="w-3 h-3 bg-trading-profit rounded-full"></div>
                       <span className="text-white">{item.component}</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs bg-dark-300 px-2 py-1 rounded text-dark-500">
+                      <span className="text-xs bg-dark-300 px-2 py-1 sharp-button text-dark-500">
                         {item.uptime} uptime
                       </span>
                       <span className="text-xs text-trading-profit font-medium">

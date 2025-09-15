@@ -88,7 +88,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 transition={{ duration: 0.2 }}
                 className="flex items-center space-x-3"
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-accent-blue to-accent-purple rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-r from-accent-blue to-accent-purple sharp-card flex items-center justify-center">
                   <ChartBarIcon className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -101,7 +101,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-dark-300 transition-colors duration-200"
+            className="p-2 sharp-button hover:bg-dark-300 transition-colors duration-200"
           >
             <motion.div
               animate={{ rotate: isCollapsed ? 180 : 0 }}
@@ -125,7 +125,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 <Link href={item.href}>
                   <motion.div
                     className={`
-                      group flex items-center px-3 py-3 rounded-lg transition-all duration-200 cursor-pointer
+                      group flex items-center px-3 py-3 sharp-button transition-all duration-200 cursor-pointer
                       ${isActive
                         ? 'bg-gradient-to-r from-accent-blue/20 to-accent-purple/20 border-l-4 border-accent-blue'
                         : 'hover:bg-dark-300/50'
@@ -138,7 +138,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   >
                     <div className="flex items-center min-w-0 flex-1">
                       <div className={`
-                        flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200
+                        flex-shrink-0 w-8 h-8 flex items-center justify-center sharp-card transition-all duration-200
                         ${isActive
                           ? 'bg-accent-blue text-white glow'
                           : 'text-dark-500 group-hover:text-accent-blue group-hover:bg-accent-blue/10'
@@ -177,7 +177,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                       <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
-                        className="w-2 h-2 bg-accent-blue rounded-full"
+                        className="w-2 h-2 bg-accent-blue"
                       />
                     )}
                   </motion.div>
@@ -191,11 +191,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                       animate={{ opacity: 1, x: 0, scale: 1 }}
                       exit={{ opacity: 0, x: -10, scale: 0.9 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute left-16 top-0 bg-dark-300 text-white px-3 py-2 rounded-lg shadow-lg border border-dark-400 z-50 whitespace-nowrap"
+                      className="absolute left-16 top-0 bg-dark-300 text-white px-3 py-2 sharp-card shadow-lg border border-dark-400 z-50 whitespace-nowrap"
                     >
                       <div className="text-sm font-medium">{item.name}</div>
                       <div className="text-xs text-dark-500">{item.description}</div>
-                      <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-2 bg-dark-300 border-l border-b border-dark-400 rotate-45"></div>
+                      <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-2 bg-dark-300 border-l border-b border-dark-400"></div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -209,8 +209,8 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       <div className="p-4 border-t border-dark-300">
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
           <div className="relative">
-            <div className="w-3 h-3 bg-trading-profit rounded-full status-online"></div>
-            <div className="absolute inset-0 w-3 h-3 bg-trading-profit rounded-full animate-ping opacity-75"></div>
+            <div className="w-3 h-3 bg-trading-profit status-online"></div>
+            <div className="absolute inset-0 w-3 h-3 bg-trading-profit animate-ping opacity-75"></div>
           </div>
 
           <AnimatePresence>

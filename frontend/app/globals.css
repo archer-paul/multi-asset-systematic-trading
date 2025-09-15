@@ -15,7 +15,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-dark-400 rounded-full;
+  @apply bg-dark-400;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -53,7 +53,47 @@ body {
 
 /* Chart containers */
 .chart-container {
-  @apply bg-dark-200 rounded-lg p-4 border border-dark-300;
+  @apply bg-dark-200 p-4 border border-dark-300;
+}
+
+/* Sharp, futuristic UI elements */
+.sharp-card {
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.sharp-button {
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+  @apply transition-all duration-200 border border-dark-400 bg-dark-200;
+}
+
+.sharp-button:hover {
+  @apply bg-dark-300 border-dark-300 shadow-lg;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.sharp-input {
+  clip-path: polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px));
+}
+
+.cyberpunk-border {
+  position: relative;
+}
+
+.cyberpunk-border::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent, rgba(59, 130, 246, 0.3), transparent);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cyberpunk-border:hover::before {
+  opacity: 1;
 }
 
 /* Loading animation */

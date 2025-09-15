@@ -80,7 +80,7 @@ export default function EntityDetailsPanel({ entity, onClose }: EntityDetailsPan
     if (metadataEntries.length === 0) return null
 
     return (
-      <div className="bg-dark-300 rounded-lg p-4">
+      <div className="bg-dark-300 sharp-card p-4">
         <h4 className="font-semibold text-white mb-3">Informations détaillées</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {metadataEntries.map(([key, value]) => (
@@ -111,7 +111,7 @@ export default function EntityDetailsPanel({ entity, onClose }: EntityDetailsPan
     }
 
     return (
-      <div className="bg-dark-300 rounded-lg p-4">
+      <div className="bg-dark-300 sharp-card p-4">
         <h4 className="font-semibold text-white mb-3">Métriques de centralité</h4>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="text-center">
@@ -168,7 +168,7 @@ export default function EntityDetailsPanel({ entity, onClose }: EntityDetailsPan
         </div>
         <button
           onClick={onClose}
-          className="p-2 rounded-lg hover:bg-dark-300 text-dark-400 hover:text-white transition-colors"
+          className="p-2 sharp-card hover:bg-dark-300 text-dark-400 hover:text-white transition-colors"
         >
           <XMarkIcon className="w-5 h-5" />
         </button>
@@ -177,7 +177,7 @@ export default function EntityDetailsPanel({ entity, onClose }: EntityDetailsPan
       {/* Content */}
       <div className="space-y-6">
         {/* Basic Info */}
-        <div className="bg-dark-300 rounded-lg p-4">
+        <div className="bg-dark-300 sharp-card p-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-accent-blue">
@@ -226,7 +226,7 @@ export default function EntityDetailsPanel({ entity, onClose }: EntityDetailsPan
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="bg-dark-200 rounded-lg p-3 border-l-4 border-accent-green"
+                      className="bg-dark-200 sharp-card p-3 border-l-4 border-accent-green"
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -234,7 +234,7 @@ export default function EntityDetailsPanel({ entity, onClose }: EntityDetailsPan
                             {relation.target_name}
                           </div>
                           <div className="flex items-center space-x-2 mt-1">
-                            <span className={`px-2 py-1 text-xs rounded ${getRelationTypeColor(relation.type)}`}>
+                            <span className={`px-2 py-1 text-xs sharp-button${getRelationTypeColor(relation.type)}`}>
                               {formatRelationType(relation.type)}
                             </span>
                             <span className="text-accent-blue text-xs font-medium">
@@ -267,7 +267,7 @@ export default function EntityDetailsPanel({ entity, onClose }: EntityDetailsPan
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="bg-dark-200 rounded-lg p-3 border-l-4 border-accent-purple"
+                      className="bg-dark-200 sharp-card p-3 border-l-4 border-accent-purple"
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -275,7 +275,7 @@ export default function EntityDetailsPanel({ entity, onClose }: EntityDetailsPan
                             {relation.source_name}
                           </div>
                           <div className="flex items-center space-x-2 mt-1">
-                            <span className={`px-2 py-1 text-xs rounded ${getRelationTypeColor(relation.type)}`}>
+                            <span className={`px-2 py-1 text-xs sharp-button${getRelationTypeColor(relation.type)}`}>
                               {formatRelationType(relation.type)}
                             </span>
                             <span className="text-accent-blue text-xs font-medium">

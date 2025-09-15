@@ -65,6 +65,7 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
       min_importance: 0,
       max_nodes: 100
     })
+    const [isUsingMockData, setIsUsingMockData] = useState(false)
 
     const getNodeShape = (nodeType: string) => {
       const shapes = {
@@ -220,11 +221,258 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
           initializeNetwork()
         }
 
+        setIsUsingMockData(false)
         toast.success(`Graphe chargé: ${data.nodes.length} entités, ${data.links.length} relations`)
 
       } catch (error: any) {
         console.error('Error loading graph data:', error)
-        toast.error(`Erreur de chargement: ${error.response?.data?.error || error.message}`)
+
+        // Fallback to mock data when API is not available
+        console.log('API not available, using mock data for knowledge graph')
+        const mockData: GraphData = {
+          nodes: [
+            {
+              id: '1',
+              name: 'Apple Inc.',
+              type: 'company',
+              region: 'US',
+              importance: 0.95,
+              size: 40,
+              color: '#3498db',
+              metadata: { sector: 'Technology', market_cap_billion: 3000 }
+            },
+            {
+              id: '2',
+              name: 'United States',
+              type: 'country',
+              region: 'US',
+              importance: 0.98,
+              size: 50,
+              color: '#e74c3c',
+              metadata: { gdp_trillion: 25.4 }
+            },
+            {
+              id: '3',
+              name: 'USD',
+              type: 'currency',
+              region: 'GLOBAL',
+              importance: 0.99,
+              size: 45,
+              color: '#f1c40f',
+              metadata: { symbol: '$' }
+            },
+            {
+              id: '4',
+              name: 'Gold',
+              type: 'commodity',
+              region: 'GLOBAL',
+              importance: 0.85,
+              size: 35,
+              color: '#8e44ad',
+              metadata: { price_per_oz: 2000 }
+            },
+            {
+              id: '5',
+              name: 'Federal Reserve',
+              type: 'institution',
+              region: 'US',
+              importance: 0.92,
+              size: 42,
+              color: '#2ecc71',
+              metadata: { type: 'central_bank' }
+            },
+            {
+              id: '6',
+              name: 'Microsoft Corp.',
+              type: 'company',
+              region: 'US',
+              importance: 0.90,
+              size: 38,
+              color: '#3498db',
+              metadata: { sector: 'Technology', market_cap_billion: 2800 }
+            },
+            {
+              id: '7',
+              name: 'European Union',
+              type: 'country',
+              region: 'EU',
+              importance: 0.88,
+              size: 45,
+              color: '#e74c3c',
+              metadata: { gdp_trillion: 17.1 }
+            },
+            {
+              id: '8',
+              name: 'EUR',
+              type: 'currency',
+              region: 'EU',
+              importance: 0.82,
+              size: 40,
+              color: '#f1c40f',
+              metadata: { symbol: '€' }
+            }
+          ],
+          links: [
+            {
+              source: '1',
+              target: '2',
+              type: 'headquartered_in',
+              strength: 0.9,
+              width: 3,
+              color: '#95a5a6',
+              metadata: { critical: true }
+            },
+            {
+              source: '1',
+              target: '3',
+              type: 'trades_in',
+              strength: 0.85,
+              width: 2,
+              color: '#95a5a6',
+              metadata: {}
+            },
+            {
+              source: '2',
+              target: '3',
+              type: 'issues',
+              strength: 0.95,
+              width: 4,
+              color: '#95a5a6',
+              metadata: { critical: true }
+            },
+            {
+              source: '5',
+              target: '3',
+              type: 'controls',
+              strength: 0.98,
+              width: 5,
+              color: '#95a5a6',
+              metadata: { critical: true }
+            },
+            {
+              source: '6',
+              target: '2',
+              type: 'headquartered_in',
+              strength: 0.9,
+              width: 3,
+              color: '#95a5a6',
+              metadata: {}
+            },
+            {
+              source: '1',
+              target: '6',
+              type: 'competes_with',
+              strength: 0.75,
+              width: 2,
+              color: '#95a5a6',
+              metadata: {}
+            },
+            {
+              source: '7',
+              target: '8',
+              type: 'issues',
+              strength: 0.92,
+              width: 4,
+              color: '#95a5a6',
+              metadata: { critical: true }
+            },
+            {
+              source: '3',
+              target: '4',
+              type: 'correlates_with',
+              strength: 0.65,
+              width: 2,
+              color: '#95a5a6',
+              metadata: {}
+            }
+          ]
+        }
+
+        // Use the same processing logic as for real data
+        const visNodes = mockData.nodes.map(node => ({
+          id: node.id,
+          label: node.name,
+          title: createNodeTooltip(node),
+          shape: getNodeShape(node.type),
+          color: {
+            background: node.color,
+            border: darkenColor(node.color, 0.3),
+            highlight: {
+              background: lightenColor(node.color, 0.2),
+              border: node.color
+            },
+            hover: {
+              background: lightenColor(node.color, 0.1),
+              border: node.color
+            }
+          },
+          size: Math.max(15, Math.min(50, node.size)),
+          font: {
+            color: '#e6edf3',
+            size: 12,
+            face: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+          },
+          borderWidth: 2,
+          shadow: {
+            enabled: true,
+            color: 'rgba(0,0,0,0.3)',
+            size: 8,
+            x: 2,
+            y: 2
+          },
+          metadata: node.metadata
+        }))
+
+        const visEdges = mockData.links.map((link, index) => ({
+          id: index,
+          from: link.source,
+          to: link.target,
+          title: createEdgeTooltip(link),
+          color: {
+            color: link.color,
+            opacity: 0.7,
+            highlight: lightenColor(link.color, 0.3),
+            hover: lightenColor(link.color, 0.2)
+          },
+          width: Math.max(1, Math.min(6, link.width)),
+          arrows: {
+            to: {
+              enabled: true,
+              scaleFactor: 0.8,
+              type: 'arrow'
+            }
+          },
+          smooth: {
+            type: 'continuous',
+            forceDirection: 'none',
+            roundness: 0.3
+          },
+          shadow: true,
+          metadata: link.metadata
+        }))
+
+        // Update datasets with mock data
+        if (nodesRef.current) {
+          nodesRef.current.clear()
+          nodesRef.current.add(visNodes)
+        } else {
+          nodesRef.current = new DataSet(visNodes)
+        }
+
+        if (edgesRef.current) {
+          edgesRef.current.clear()
+          edgesRef.current.add(visEdges)
+        } else {
+          edgesRef.current = new DataSet(visEdges)
+        }
+
+        // Create or update network
+        if (!networkRef.current && containerRef.current) {
+          initializeNetwork()
+        }
+
+        setIsUsingMockData(true)
+        toast.success(`Graphe de démonstration chargé: ${mockData.nodes.length} entités, ${mockData.links.length} relations (backend indisponible)`)
       } finally {
         onLoading(false)
       }
@@ -323,7 +571,18 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
     }
 
     const applyFilters = async (filters: GraphFilters) => {
-      await loadData(filters)
+      // If we're already using mock data, don't try to reload from API
+      if (isUsingMockData) {
+        console.log('Already using mock data, skipping filter application')
+        return
+      }
+
+      try {
+        await loadData(filters)
+      } catch (error) {
+        console.error('Error applying filters, skipping:', error)
+        // Don't retry infinitely, just log and skip
+      }
     }
 
     const exportToPNG = () => {
@@ -394,7 +653,7 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
     return (
       <div
         ref={containerRef}
-        className="w-full h-full bg-dark-100 relative overflow-hidden rounded-lg border border-dark-300"
+        className="w-full h-full bg-dark-100 relative overflow-hidden sharp-card border border-dark-300"
         style={{ minHeight: '400px' }}
       >
         {/* Network will be rendered here by vis-network */}

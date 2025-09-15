@@ -78,8 +78,43 @@ export default function PortfolioPage() {
         setPortfolioData(data);
         toast.success('Portfolio data loaded!');
       } catch (error) {
-        console.error(error);
-        toast.error('Could not load portfolio data.');
+        console.warn('Portfolio API not available, using mock data:', error);
+        // Mock data for portfolio - structure matches what code expects
+        const mockData = {
+          holdings: [
+            { symbol: 'AAPL', name: 'Apple Inc.', shares: 45, value: 8208.45, pnl: 323.1, weight: 0.065, sector: 'Technology' },
+            { symbol: 'MSFT', name: 'Microsoft Corp.', shares: 32, value: 11416.96, pnl: 468.16, weight: 0.091, sector: 'Technology' },
+            { symbol: 'GOOGL', name: 'Alphabet Inc.', shares: 18, value: 2415.96, pnl: 103.86, weight: 0.019, sector: 'Technology' },
+            { symbol: 'TSLA', name: 'Tesla Inc.', shares: 25, value: 5972.75, pnl: -169, weight: 0.047, sector: 'Consumer Discretionary' },
+            { symbol: 'NVDA', name: 'NVIDIA Corp.', shares: 15, value: 7339.8, pnl: 488.1, weight: 0.058, sector: 'Technology' }
+          ],
+          sectorAllocation: [
+            { sector: 'Technology', value: 29380.17, weight: 0.233 },
+            { sector: 'Healthcare', value: 18642.33, weight: 0.148 },
+            { sector: 'Finance', value: 15234.87, weight: 0.121 },
+            { sector: 'Consumer Discretionary', value: 12456.78, weight: 0.099 },
+            { sector: 'Energy', value: 9876.54, weight: 0.078 },
+            { sector: 'Others', value: 40256.63, weight: 0.321 }
+          ],
+          performanceHistory: Array.from({ length: 180 }, (_, i) => {
+            const baseValue = 100000 + i * 150;
+            const randomVariation = (Math.random() - 0.5) * 2000;
+            const open = baseValue + randomVariation;
+            const close = open + (Math.random() - 0.5) * 1000;
+            const high = Math.max(open, close) + Math.random() * 500;
+            const low = Math.min(open, close) - Math.random() * 500;
+
+            return {
+              time: Math.floor((Date.now() - (179 - i) * 24 * 60 * 60 * 1000) / 1000),
+              open: Math.round(open),
+              high: Math.round(high),
+              low: Math.round(low),
+              close: Math.round(close)
+            };
+          })
+        };
+        setPortfolioData(mockData);
+        toast.success('Portfolio demo data loaded!');
       } finally {
         setLoading(false);
       }
@@ -126,7 +161,7 @@ export default function PortfolioPage() {
         </motion.div>
 
         {/* Candlestick Chart */}
-        <motion.div variants={itemVariants} className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+        <motion.div variants={itemVariants} className="bg-dark-200 sharp-card p-6 border border-dark-300">
             <h3 className="text-lg font-semibold text-white mb-4">Performance History</h3>
             <CandlestickChart data={portfolioData.performanceHistory} />
         </motion.div>
@@ -134,7 +169,7 @@ export default function PortfolioPage() {
         {/* Holdings Table */}
         <motion.div variants={itemVariants}>
           <h2 className="text-xl font-semibold text-white mb-4">Current Holdings</h2>
-          <div className="bg-dark-200 rounded-xl border border-dark-300 overflow-hidden">
+          <div className="bg-dark-200 sharp-card border border-dark-300 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 {/* Table Head */}

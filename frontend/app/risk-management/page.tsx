@@ -105,7 +105,7 @@ export default function RiskManagementPage() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-dark-200 border border-dark-300 rounded-lg p-4 shadow-lg">
+        <div className="bg-dark-200 border border-dark-300 sharp-card p-4 shadow-lg">
           <p className="text-white font-medium mb-2">{label}</p>
           {payload.map((entry: any, index: number) => (
             <div key={index} className="flex items-center space-x-2">
@@ -206,7 +206,7 @@ export default function RiskManagementPage() {
         {/* Risk Charts */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* VaR Analysis */}
-          <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+          <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center">
                 <TrendingDownIcon className="w-5 h-5 mr-2 text-trading-loss" />
@@ -218,7 +218,7 @@ export default function RiskManagementPage() {
                   <button
                     key={period}
                     onClick={() => setSelectedTimeframe(period)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-all duration-200 ${
+                    className={`px-3 py-1 sharp-button text-xs font-medium transition-all duration-200 ${
                       selectedTimeframe === period
                         ? 'bg-accent-blue text-white'
                         : 'bg-dark-300 text-dark-500 hover:bg-dark-400'
@@ -269,7 +269,7 @@ export default function RiskManagementPage() {
           </div>
 
           {/* Sector Risk Exposure */}
-          <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+          <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <ChartPieIcon className="w-5 h-5 mr-2 text-accent-purple" />
               Sector Risk Exposure
@@ -309,7 +309,7 @@ export default function RiskManagementPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.1 }}
                 className={`
-                  bg-dark-200 rounded-xl p-6 border-l-4 border border-dark-300
+                  bg-dark-200 sharp-card p-6 border-l-4 border border-dark-300
                   ${alert.type === 'high' ? 'border-l-trading-loss' : ''}
                   ${alert.type === 'medium' ? 'border-l-accent-yellow' : ''}
                   ${alert.type === 'low' ? 'border-l-accent-blue' : ''}
@@ -317,7 +317,7 @@ export default function RiskManagementPage() {
               >
                 <div className="flex items-start space-x-3">
                   <div className={`
-                    p-2 rounded-lg
+                    p-2 sharp-card
                     ${alert.type === 'high' ? 'bg-trading-loss/20' : ''}
                     ${alert.type === 'medium' ? 'bg-accent-yellow/20' : ''}
                     ${alert.type === 'low' ? 'bg-accent-blue/20' : ''}
@@ -340,7 +340,7 @@ export default function RiskManagementPage() {
                         {alert.time}
                       </span>
                       <button className={`
-                        px-3 py-1 rounded text-xs font-medium transition-colors duration-200
+                        px-3 py-1 sharp-button text-xs font-medium transition-colors duration-200
                         ${alert.type === 'high' ? 'bg-trading-loss/20 text-trading-loss hover:bg-trading-loss/30' : ''}
                         ${alert.type === 'medium' ? 'bg-accent-yellow/20 text-accent-yellow hover:bg-accent-yellow/30' : ''}
                         ${alert.type === 'low' ? 'bg-accent-blue/20 text-accent-blue hover:bg-accent-blue/30' : ''}
@@ -362,7 +362,7 @@ export default function RiskManagementPage() {
             Stress Testing Scenarios
           </h2>
 
-          <div className="bg-dark-200 rounded-xl p-6 border border-dark-300">
+          <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>

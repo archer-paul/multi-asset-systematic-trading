@@ -91,7 +91,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-dark-200 rounded-xl p-8 shadow-2xl border border-dark-300"
+              className="bg-dark-200 sharp-card p-8 shadow-2xl border border-dark-300"
             >
               <div className="loading-dots">
                 <div></div>
