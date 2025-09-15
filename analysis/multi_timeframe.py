@@ -1,0 +1,585 @@
+"""
+Multi-Timeframe Analysis Module for Trading Bot
+Analyzes multiple time horizons to improve prediction accuracy
+"""
+
+import logging
+import asyncio
+import pandas as pd
+import numpy as np
+from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime, timedelta
+import yfinance as yf
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+import talib
+
+logger = logging.getLogger(__name__)
+
+class MultiTimeframeAnalyzer:
+    """
+    Analyzes multiple timeframes to provide comprehensive market insights
+    Combines short-term (1D), medium-term (1W), and long-term (1M) analysis
+    """
+    
+    def __init__(self, config=None):
+        self.config = config
+        
+        # Define timeframes for analysis
+        self.timeframes = {
+            'short_term': {'period': '1d', 'interval': '5m', 'lookback_days': 5},
+            'medium_term': {'period': '1mo', 'interval': '1h', 'lookback_days': 30}, 
+            'long_term': {'period': '3mo', 'interval': '1d', 'lookback_days': 90}
+        }
+        
+        # Technical indicators configuration
+        self.indicators = {
+            'trend': ['SMA_20', 'SMA_50', 'EMA_12', 'EMA_26', 'MACD'],
+            'momentum': ['RSI', 'STOCH', 'WILLIAMS_R', 'CCI'],
+            'volatility': ['BBANDS', 'ATR', 'VOLATILITY'],
+            'volume': ['OBV', 'AD', 'VOLUME_SMA']
+        }
+        
+        # Scoring weights for different timeframes
+        self.timeframe_weights = {
+            'short_term': 0.2,    # 20% weight for short-term signals
+            'medium_term': 0.5,   # 50% weight for medium-term signals
+            'long_term': 0.3      # 30% weight for long-term signals
+        }
+        
+        self.scalers = {}
+        self.models = {}
+        
+    async def analyze_multi_timeframe(self, symbols: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Perform multi-timeframe analysis for given symbols
+        """
+        results = {}
+        
+        for symbol in symbols:
+            try:
+                logger.info(f"Starting multi-timeframe analysis for {symbol}")
+                
+                # Collect data for all timeframes
+                timeframe_data = await self._collect_timeframe_data(symbol)
+                
+                if not timeframe_data:
+                    logger.warning(f"No data collected for {symbol}")
+                    continue
+                
+                # Calculate technical indicators for each timeframe
+                technical_analysis = await asyncio.to_thread(self._calculate_technical_indicators, timeframe_data)
+                
+                # Generate signals for each timeframe
+                timeframe_signals = await asyncio.to_thread(self._generate_timeframe_signals, technical_analysis)
+                
+                # Combine signals into final score
+                final_analysis = await asyncio.to_thread(self._combine_timeframe_analysis, timeframe_signals)
+                
+                # Add market regime detection
+                market_regime = await asyncio.to_thread(self._detect_market_regime, timeframe_data)
+                final_analysis['market_regime'] = market_regime
+                
+                # Calculate confidence score
+                confidence = await asyncio.to_thread(self._calculate_confidence_score, timeframe_signals, market_regime)
+                final_analysis['confidence'] = confidence
+                
+                results[symbol] = final_analysis
+                
+                logger.info(f"Completed multi-timeframe analysis for {symbol}: Score={final_analysis['composite_score']:.2f}, Confidence={confidence:.2f}")
+                
+            except Exception as e:
+                logger.error(f"Multi-timeframe analysis failed for {symbol}: {e}")
+                results[symbol] = self._get_neutral_analysis()
+        
+        return results
+    
+    async def _collect_timeframe_data(self, symbol: str) -> Dict[str, pd.DataFrame]:
+        """
+        Collect price data for all timeframes
+        """
+        timeframe_data = {}
+        
+        for tf_name, tf_config in self.timeframes.items():
+            try:
+                ticker = yf.Ticker(symbol)
+                
+                # Get historical data
+                data = await asyncio.to_thread(
+                    ticker.history,
+                    period=tf_config['period'],
+                    interval=tf_config['interval'],
+                    auto_adjust=True,
+                    prepost=True
+                )
+                
+                if not data.empty:
+                    timeframe_data[tf_name] = data
+                    logger.debug(f"Collected {len(data)} bars for {symbol} on {tf_name} timeframe")
+                else:
+                    logger.warning(f"No data for {symbol} on {tf_name} timeframe")
+                    
+            except Exception as e:
+                logger.error(f"Failed to collect {tf_name} data for {symbol}: {e}")
+        
+        return timeframe_data
+    
+    def _calculate_technical_indicators(self, timeframe_data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
+        """
+        Calculate technical indicators for each timeframe
+        """
+        technical_analysis = {}
+        
+        for tf_name, df in timeframe_data.items():
+            if df.empty:
+                continue
+                
+            try:
+                indicators = {}
+                
+                # Price data
+                high = df['High'].values
+                low = df['Low'].values
+                close = df['Close'].values
+                volume = df['Volume'].values
+                
+                # Trend Indicators
+                indicators['SMA_20'] = talib.SMA(close, timeperiod=20)
+                indicators['SMA_50'] = talib.SMA(close, timeperiod=min(50, len(close)-1))
+                indicators['EMA_12'] = talib.EMA(close, timeperiod=12)
+                indicators['EMA_26'] = talib.EMA(close, timeperiod=26)
+                
+                # MACD
+                macd, macd_signal, macd_hist = talib.MACD(close)
+                indicators['MACD'] = macd
+                indicators['MACD_SIGNAL'] = macd_signal
+                indicators['MACD_HIST'] = macd_hist
+                
+                # Momentum Indicators
+                indicators['RSI'] = talib.RSI(close, timeperiod=14)
+                indicators['STOCH_K'], indicators['STOCH_D'] = talib.STOCH(high, low, close)
+                indicators['WILLIAMS_R'] = talib.WILLR(high, low, close, timeperiod=14)
+                indicators['CCI'] = talib.CCI(high, low, close, timeperiod=14)
+                
+                # Volatility Indicators
+                bb_upper, bb_middle, bb_lower = talib.BBANDS(close)
+                indicators['BB_UPPER'] = bb_upper
+                indicators['BB_MIDDLE'] = bb_middle
+                indicators['BB_LOWER'] = bb_lower
+                indicators['ATR'] = talib.ATR(high, low, close, timeperiod=14)
+                
+                # Volume Indicators
+                indicators['OBV'] = talib.OBV(close, volume)
+                indicators['AD'] = talib.AD(high, low, close, volume)
+                
+                # Custom volatility calculation
+                returns = np.log(close[1:] / close[:-1])
+                indicators['VOLATILITY'] = pd.Series(returns).rolling(20).std() * np.sqrt(252)
+                
+                technical_analysis[tf_name] = {
+                    'data': df,
+                    'indicators': indicators,
+                    'latest_price': close[-1] if len(close) > 0 else 0
+                }
+                
+            except Exception as e:
+                logger.error(f"Technical indicator calculation failed for {tf_name}: {e}")
+                technical_analysis[tf_name] = {'data': df, 'indicators': {}, 'latest_price': 0}
+        
+        return technical_analysis
+    
+    def _generate_timeframe_signals(self, technical_analysis: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+        """
+        Generate trading signals for each timeframe
+        """
+        timeframe_signals = {}
+        
+        for tf_name, analysis in technical_analysis.items():
+            try:
+                signals = {}
+                indicators = analysis['indicators']
+                latest_price = analysis['latest_price']
+                
+                if not indicators or latest_price == 0:
+                    timeframe_signals[tf_name] = self._get_neutral_signals()
+                    continue
+                
+                # Trend Signals
+                signals['trend_score'] = self._calculate_trend_score(indicators, latest_price)
+                
+                # Momentum Signals  
+                signals['momentum_score'] = self._calculate_momentum_score(indicators)
+                
+                # Volatility Signals
+                signals['volatility_score'] = self._calculate_volatility_score(indicators, latest_price)
+                
+                # Volume Signals
+                signals['volume_score'] = self._calculate_volume_score(indicators)
+                
+                # Overall timeframe score
+                signals['timeframe_score'] = np.mean([
+                    signals['trend_score'],
+                    signals['momentum_score'], 
+                    signals['volatility_score'],
+                    signals['volume_score']
+                ])
+                
+                timeframe_signals[tf_name] = signals
+                
+            except Exception as e:
+                logger.error(f"Signal generation failed for {tf_name}: {e}")
+                timeframe_signals[tf_name] = self._get_neutral_signals()
+        
+        return timeframe_signals
+    
+    def _calculate_trend_score(self, indicators: Dict, latest_price: float) -> float:
+        """Calculate trend score from technical indicators"""
+        try:
+            score = 0.0
+            count = 0
+            
+            # SMA trend
+            if 'SMA_20' in indicators and not np.isnan(indicators['SMA_20'][-1]):
+                sma20 = indicators['SMA_20'][-1]
+                score += 1.0 if latest_price > sma20 else -1.0
+                count += 1
+                
+            if 'SMA_50' in indicators and not np.isnan(indicators['SMA_50'][-1]):
+                sma50 = indicators['SMA_50'][-1]
+                score += 1.0 if latest_price > sma50 else -1.0
+                count += 1
+            
+            # EMA trend
+            if 'EMA_12' in indicators and 'EMA_26' in indicators:
+                ema12 = indicators['EMA_12'][-1]
+                ema26 = indicators['EMA_26'][-1]
+                if not (np.isnan(ema12) or np.isnan(ema26)):
+                    score += 1.0 if ema12 > ema26 else -1.0
+                    count += 1
+            
+            # MACD trend
+            if 'MACD' in indicators and 'MACD_SIGNAL' in indicators:
+                macd = indicators['MACD'][-1]
+                macd_signal = indicators['MACD_SIGNAL'][-1]
+                if not (np.isnan(macd) or np.isnan(macd_signal)):
+                    score += 1.0 if macd > macd_signal else -1.0
+                    count += 1
+            
+            return score / count if count > 0 else 0.0
+            
+        except Exception as e:
+            logger.debug(f"Trend score calculation error: {e}")
+            return 0.0
+    
+    def _calculate_momentum_score(self, indicators: Dict) -> float:
+        """Calculate momentum score from technical indicators"""
+        try:
+            score = 0.0
+            count = 0
+            
+            # RSI
+            if 'RSI' in indicators and not np.isnan(indicators['RSI'][-1]):
+                rsi = indicators['RSI'][-1]
+                if rsi > 70:
+                    score += -1.0  # Overbought
+                elif rsi < 30:
+                    score += 1.0   # Oversold
+                else:
+                    score += (50 - rsi) / 20  # Normalized score
+                count += 1
+            
+            # Stochastic
+            if 'STOCH_K' in indicators and not np.isnan(indicators['STOCH_K'][-1]):
+                stoch_k = indicators['STOCH_K'][-1]
+                if stoch_k > 80:
+                    score += -1.0  # Overbought
+                elif stoch_k < 20:
+                    score += 1.0   # Oversold
+                else:
+                    score += (50 - stoch_k) / 30
+                count += 1
+            
+            # Williams %R
+            if 'WILLIAMS_R' in indicators and not np.isnan(indicators['WILLIAMS_R'][-1]):
+                wr = indicators['WILLIAMS_R'][-1]
+                if wr > -20:
+                    score += -1.0  # Overbought
+                elif wr < -80:
+                    score += 1.0   # Oversold
+                else:
+                    score += (wr + 50) / 30
+                count += 1
+            
+            return score / count if count > 0 else 0.0
+            
+        except Exception as e:
+            logger.debug(f"Momentum score calculation error: {e}")
+            return 0.0
+    
+    def _calculate_volatility_score(self, indicators: Dict, latest_price: float) -> float:
+        """Calculate volatility-based score"""
+        try:
+            score = 0.0
+            count = 0
+            
+            # Bollinger Bands position
+            if all(key in indicators for key in ['BB_UPPER', 'BB_LOWER', 'BB_MIDDLE']):
+                bb_upper = indicators['BB_UPPER'][-1]
+                bb_lower = indicators['BB_LOWER'][-1]
+                bb_middle = indicators['BB_MIDDLE'][-1]
+                
+                if not any(np.isnan([bb_upper, bb_lower, bb_middle])):
+                    if latest_price > bb_upper:
+                        score += -0.5  # Price above upper band
+                    elif latest_price < bb_lower:
+                        score += 1.0   # Price below lower band - potential buy
+                    else:
+                        # Normalized position within bands
+                        position = (latest_price - bb_lower) / (bb_upper - bb_lower)
+                        score += 1.0 - position  # Higher score when closer to lower band
+                    count += 1
+            
+            # ATR-based volatility assessment
+            if 'ATR' in indicators and not np.isnan(indicators['ATR'][-1]):
+                atr = indicators['ATR'][-1]
+                atr_pct = (atr / latest_price) * 100
+                
+                # Moderate volatility is preferred
+                if 1.0 < atr_pct < 3.0:
+                    score += 0.5
+                elif atr_pct > 5.0:
+                    score += -0.5  # Too volatile
+                count += 1
+            
+            return score / count if count > 0 else 0.0
+            
+        except Exception as e:
+            logger.debug(f"Volatility score calculation error: {e}")
+            return 0.0
+    
+    def _calculate_volume_score(self, indicators: Dict) -> float:
+        """Calculate volume-based score"""
+        try:
+            score = 0.0
+            count = 0
+            
+            # OBV trend
+            if 'OBV' in indicators and len(indicators['OBV']) > 10:
+                obv = indicators['OBV']
+                obv_sma = np.nanmean(obv[-10:])  # 10-period average
+                if not np.isnan(obv[-1]) and not np.isnan(obv_sma):
+                    score += 1.0 if obv[-1] > obv_sma else -0.5
+                    count += 1
+            
+            # A/D Line
+            if 'AD' in indicators and len(indicators['AD']) > 5:
+                ad = indicators['AD']
+                if not np.isnan(ad[-1]) and not np.isnan(ad[-5]):
+                    score += 1.0 if ad[-1] > ad[-5] else -0.5
+                    count += 1
+            
+            return score / count if count > 0 else 0.0
+            
+        except Exception as e:
+            logger.debug(f"Volume score calculation error: {e}")
+            return 0.0
+    
+    def _combine_timeframe_analysis(self, timeframe_signals: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
+        """
+        Combine signals from all timeframes into final analysis
+        """
+        try:
+            # Calculate weighted composite score
+            composite_score = 0.0
+            total_weight = 0.0
+            
+            timeframe_scores = {}
+            
+            for tf_name, signals in timeframe_signals.items():
+                if tf_name in self.timeframe_weights:
+                    weight = self.timeframe_weights[tf_name]
+                    tf_score = signals.get('timeframe_score', 0.0)
+                    
+                    composite_score += tf_score * weight
+                    total_weight += weight
+                    timeframe_scores[tf_name] = tf_score
+            
+            final_composite_score = composite_score / total_weight if total_weight > 0 else 0.0
+            
+            # Determine signal strength
+            if final_composite_score > 0.5:
+                signal = 'STRONG_BUY'
+            elif final_composite_score > 0.2:
+                signal = 'BUY'
+            elif final_composite_score > -0.2:
+                signal = 'HOLD'
+            elif final_composite_score > -0.5:
+                signal = 'SELL'
+            else:
+                signal = 'STRONG_SELL'
+            
+            return {
+                'composite_score': final_composite_score,
+                'signal': signal,
+                'timeframe_scores': timeframe_scores,
+                'timeframe_signals': timeframe_signals,
+                'analysis_timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to combine timeframe analysis: {e}")
+            return self._get_neutral_analysis()
+    
+    def _detect_market_regime(self, timeframe_data: Dict[str, pd.DataFrame]) -> str:
+        """
+        Detect current market regime (trending, ranging, volatile)
+        """
+        try:
+            # Use long-term data for regime detection
+            if 'long_term' not in timeframe_data or timeframe_data['long_term'].empty:
+                return 'unknown'
+            
+            df = timeframe_data['long_term']
+            closes = df['Close'].values
+            
+            if len(closes) < 20:
+                return 'insufficient_data'
+            
+            # Calculate trend strength
+            recent_closes = closes[-20:]
+            trend_slope = np.polyfit(range(len(recent_closes)), recent_closes, 1)[0]
+            price_std = np.std(recent_closes)
+            avg_price = np.mean(recent_closes)
+            
+            trend_strength = abs(trend_slope) / (price_std / avg_price)
+            volatility_ratio = price_std / avg_price
+            
+            if trend_strength > 0.5:
+                if trend_slope > 0:
+                    return 'uptrending'
+                else:
+                    return 'downtrending'
+            elif volatility_ratio > 0.05:
+                return 'volatile'
+            else:
+                return 'ranging'
+                
+        except Exception as e:
+            logger.debug(f"Market regime detection error: {e}")
+            return 'unknown'
+    
+    def _calculate_confidence_score(self, timeframe_signals: Dict[str, Dict[str, float]], market_regime: str) -> float:
+        """
+        Calculate confidence score based on signal alignment and market regime
+        """
+        try:
+            confidence = 0.5  # Base confidence
+            
+            # Check signal alignment across timeframes
+            scores = [signals.get('timeframe_score', 0.0) for signals in timeframe_signals.values()]
+            
+            if len(scores) >= 2:
+                # Calculate agreement between timeframes
+                score_std = np.std(scores)
+                avg_score = np.mean(scores)
+                
+                # Higher confidence when signals align
+                alignment_bonus = max(0, 0.3 - score_std)
+                confidence += alignment_bonus
+                
+                # Higher confidence for stronger signals
+                strength_bonus = min(0.2, abs(avg_score) * 0.2)
+                confidence += strength_bonus
+            
+            # Market regime adjustment
+            if market_regime in ['uptrending', 'downtrending']:
+                confidence += 0.1  # More confident in trending markets
+            elif market_regime == 'volatile':
+                confidence -= 0.1  # Less confident in volatile markets
+            
+            return min(1.0, max(0.0, confidence))
+            
+        except Exception as e:
+            logger.debug(f"Confidence calculation error: {e}")
+            return 0.5
+    
+    def _get_neutral_signals(self) -> Dict[str, float]:
+        """Return neutral signals when calculation fails"""
+        return {
+            'trend_score': 0.0,
+            'momentum_score': 0.0,
+            'volatility_score': 0.0,
+            'volume_score': 0.0,
+            'timeframe_score': 0.0
+        }
+    
+    def _get_neutral_analysis(self) -> Dict[str, Any]:
+        """Return neutral analysis when calculation fails"""
+        return {
+            'composite_score': 0.0,
+            'signal': 'HOLD',
+            'timeframe_scores': {},
+            'timeframe_signals': {},
+            'market_regime': 'unknown',
+            'confidence': 0.5,
+            'analysis_timestamp': datetime.now().isoformat()
+        }
+    
+    async def get_market_summary(self, symbols: List[str]) -> Dict[str, Any]:
+        """
+        Get a summary of multi-timeframe analysis across all symbols
+        """
+        try:
+            analysis_results = await self.analyze_multi_timeframe(symbols)
+            
+            if not analysis_results:
+                return {'status': 'no_data', 'summary': 'No analysis data available'}
+            
+            # Aggregate statistics
+            total_symbols = len(analysis_results)
+            signals = [result['signal'] for result in analysis_results.values()]
+            scores = [result['composite_score'] for result in analysis_results.values()]
+            
+            signal_distribution = {}
+            for signal in ['STRONG_BUY', 'BUY', 'HOLD', 'SELL', 'STRONG_SELL']:
+                signal_distribution[signal] = signals.count(signal)
+            
+            avg_score = np.mean(scores) if scores else 0.0
+            
+            # Top opportunities
+            sorted_results = sorted(
+                [(symbol, result) for symbol, result in analysis_results.items()],
+                key=lambda x: x[1]['composite_score'],
+                reverse=True
+            )
+            
+            top_opportunities = [
+                {
+                    'symbol': symbol,
+                    'score': result['composite_score'],
+                    'signal': result['signal'],
+                    'confidence': result['confidence']
+                }
+                for symbol, result in sorted_results[:10]
+            ]
+            
+            return {
+                'status': 'success',
+                'total_symbols': total_symbols,
+                'average_score': avg_score,
+                'signal_distribution': signal_distribution,
+                'top_opportunities': top_opportunities,
+                'analysis_timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Market summary generation failed: {e}")
+            return {'status': 'error', 'error': str(e)}
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get analyzer status"""
+        return {
+            'timeframes_configured': len(self.timeframes),
+            'indicators_available': sum(len(indicators) for indicators in self.indicators.values()),
+            'status': 'ready'
+        }

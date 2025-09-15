@@ -3,8 +3,8 @@
 import { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon as TrendingUpIcon,
+  ArrowTrendingDownIcon as TrendingDownIcon,
   MinusIcon,
 } from '@heroicons/react/24/outline'
 
@@ -173,20 +173,7 @@ export default function MetricCard({
           </div>
         )}
 
-        {/* Animated bottom border */}
-        <motion.div
-          className={`
-            absolute bottom-0 left-0 h-1 bg-gradient-to-r
-            ${color === 'blue' ? 'from-accent-blue to-accent-purple' : ''}
-            ${color === 'green' ? 'from-trading-profit to-accent-blue' : ''}
-            ${color === 'red' ? 'from-trading-loss to-accent-yellow' : ''}
-            ${color === 'yellow' ? 'from-accent-yellow to-accent-purple' : ''}
-            ${color === 'purple' ? 'from-accent-purple to-accent-blue' : ''}
-          `}
-          initial={{ width: 0 }}
-          animate={{ width: '100%' }}
-          transition={{ duration: 1, delay: 0.2 }}
-        />
+        {/* Removed colored bars for professional look */}
       </div>
     </motion.div>
   )

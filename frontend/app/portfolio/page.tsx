@@ -9,14 +9,14 @@ import useSocket from '../../hooks/useSocket' // Adjusted path
 import toast, { Toaster } from 'react-hot-toast'
 import {
   BriefcaseIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon as TrendingUpIcon,
+  ArrowTrendingDownIcon as TrendingDownIcon,
   CurrencyDollarIcon,
   ChartPieIcon,
 } from '@heroicons/react/24/outline'
 
 // Candlestick Chart Component
-const CandlestickChart = ({ data }) => {
+const CandlestickChart = ({ data }: { data: any }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -26,7 +26,7 @@ const CandlestickChart = ({ data }) => {
       chartRef.current = createChart(chartContainerRef.current, {
         width: chartContainerRef.current.clientWidth,
         height: 300,
-        layout: { backgroundColor: '#1a202c', textColor: '#cbd5e0' },
+        layout: { background: { color: '#1a202c' }, textColor: '#cbd5e0' },
         grid: { vertLines: { color: '#2d3748' }, horzLines: { color: '#2d3748' } },
       });
 
@@ -63,7 +63,7 @@ const CandlestickChart = ({ data }) => {
 
 export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
-  const [portfolioData, setPortfolioData] = useState({ holdings: [], sectorAllocation: [], performanceHistory: [] });
+  const [portfolioData, setPortfolioData] = useState<{ holdings: any[], sectorAllocation: any[], performanceHistory: any[] }>({ holdings: [], sectorAllocation: [], performanceHistory: [] });
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const { socket, isConnected } = useSocket(API_URL);
 

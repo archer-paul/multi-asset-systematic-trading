@@ -8,7 +8,7 @@ import {
   ShieldCheckIcon,
   ExclamationTriangleIcon,
   ChartPieIcon,
-  TrendingDownIcon,
+  ArrowTrendingDownIcon as TrendingDownIcon,
   BellAlertIcon,
   CurrencyDollarIcon,
   ScaleIcon,
@@ -231,7 +231,7 @@ export default function RiskManagementPage() {
             </div>
 
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={riskData.portfolioRisk}>
+              <LineChart data={portfolioRisk}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" opacity={0.3} />
                 <XAxis
                   dataKey="date"

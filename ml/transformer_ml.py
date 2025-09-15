@@ -16,6 +16,7 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
 import torch.nn.functional as F
 from sklearn.preprocessing import StandardScaler, RobustScaler
+import asyncio
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import warnings
 warnings.filterwarnings('ignore')
@@ -793,7 +794,7 @@ class TransformerMLPredictor:
                     continue
                 
                 try:
-                    results = self._train_single_model(model, train_loader, val_loader, model_name)
+                    results = await asyncio.to_thread(self._train_single_model, model, train_loader, val_loader, model_name)
                     training_results[model_name] = results
                     logger.info(f"{model_name} training completed - R2: {results['final_r2']:.4f}")
                     

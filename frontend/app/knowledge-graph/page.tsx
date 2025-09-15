@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, FC } from 'react'
 import { motion } from 'framer-motion'
 import {
   ShareIcon,
@@ -90,7 +90,7 @@ interface CascadeAnalysis {
   analysis_timestamp: string
 }
 
-export default function KnowledgeGraphPage() {
+const KnowledgeGraphPage: FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [networkRef, setNetworkRef] = useState<any>(null)
   const [selectedEntity, setSelectedEntity] = useState<EntityDetails | null>(null)
@@ -149,27 +149,96 @@ export default function KnowledgeGraphPage() {
 
   const loadGraphStats = async () => {
     try {
+      // Try to get real data from API first
       const response = await knowledgeGraphAPI.getStatus()
       if (response.data.status === 'active' && response.data.statistics) {
         setStats(response.data.statistics)
+        toast.success('Statistiques du graphe chargées')
       }
     } catch (error) {
-      console.error('Error loading stats:', error)
+      console.error('API not available, using fallback data:', error)
+
+      // Fallback to mock data if API is not available
+      const mockStats = {
+        nodes: 127,
+        edges: 284,
+        density: 0.035,
+        is_connected: true,
+        entities_by_type: {
+          'company': 45,
+          'currency': 8,
+          'commodity': 12,
+          'country': 25,
+          'sector': 15,
+          'institution': 22
+        },
+        relationships_by_type: {
+          'trades_with': 89,
+          'correlates_with': 67,
+          'belongs_to': 45,
+          'influences': 38,
+          'competes_with': 25,
+          'supplies_to': 20
+        },
+        top_entities: [
+          ['USD', 0.95],
+          ['AAPL', 0.89],
+          ['EUR', 0.87],
+          ['BTC', 0.85],
+          ['MSFT', 0.83],
+          ['GOLD', 0.81],
+          ['United States', 0.79],
+          ['GOOGL', 0.77],
+          ['China', 0.75],
+          ['Technology', 0.73]
+        ]
+      }
+      setStats(mockStats)
+      toast.success('Données de démonstration chargées (backend indisponible)')
     }
   }
 
-  const handleEntitySelect = async (entityId: string) => {
+  const handleEntitySelect = async (entityId: string | null) => {
     if (!entityId) {
       setSelectedEntity(null)
       return
     }
 
     try {
+      // Try to get real data from API first
       const response = await knowledgeGraphAPI.getEntityDetails(entityId)
       setSelectedEntity(response.data)
+      toast.success('Détails de l\'entité chargés')
     } catch (error) {
-      console.error('Error loading entity details:', error)
-      toast.error('Erreur lors du chargement des détails')
+      console.error('API not available, using fallback data:', error)
+
+      // Fallback to mock data if API is not available
+      const mockEntityDetails = {
+        id: entityId,
+        name: entityId === '1' ? 'Apple Inc.' : entityId === '4' ? 'US Dollar' : `Entity ${entityId}`,
+        type: entityId === '1' ? 'company' : entityId === '4' ? 'currency' : 'unknown',
+        region: entityId === '1' ? 'US' : 'Global',
+        importance: 0.85,
+        metadata: {
+          market_cap: entityId === '1' ? '3.0T USD' : 'N/A',
+          sector: entityId === '1' ? 'Technology' : 'N/A',
+          description: `Entité de démonstration ${entityId}`
+        },
+        relations: {
+          outgoing: [
+            {
+              target: 'tech_sector',
+              target_name: 'Technology Sector',
+              relation_type: 'belongs_to',
+              strength: 0.9
+            }
+          ],
+          incoming: []
+        }
+      }
+
+      setSelectedEntity(mockEntityDetails)
+      toast.success('Données de démonstration chargées')
     }
   }
 
@@ -181,13 +250,38 @@ export default function KnowledgeGraphPage() {
     setIsAnalyzing(true)
 
     try {
+      // Try to get real data from API first
       const response = await knowledgeGraphAPI.analyzeCascade(analysisData)
       setCascadeResults(response.data)
       setShowCascadeAnalysis(true)
       toast.success(`Analyse terminée: ${response.data.total_effects} effets détectés`)
     } catch (error: any) {
-      console.error('Error analyzing cascade:', error)
-      toast.error(`Erreur d'analyse: ${error.response?.data?.error || error.message}`)
+      console.error('API not available, using fallback data:', error)
+
+      // Fallback to mock cascade analysis
+      const mockCascadeResults = {
+        original_entity: analysisData.entity,
+        analysis_type: analysisData.type,
+        magnitude: analysisData.magnitude,
+        total_effects: 15,
+        direct_effects: [
+          { entity: 'MSFT', effect: 0.25, confidence: 0.8 },
+          { entity: 'GOOGL', effect: 0.20, confidence: 0.7 },
+          { entity: 'Tech Sector', effect: 0.35, confidence: 0.9 }
+        ],
+        indirect_effects: [
+          { entity: 'NFLX', effect: 0.15, confidence: 0.6 },
+          { entity: 'AMZN', effect: 0.18, confidence: 0.65 }
+        ],
+        cascading_paths: [
+          ['AAPL', 'Tech Sector', 'MSFT'],
+          ['AAPL', 'USD', 'Global Markets']
+        ]
+      }
+
+      setCascadeResults(mockCascadeResults)
+      setShowCascadeAnalysis(true)
+      toast.success('Analyse de démonstration terminée (backend indisponible)')
     } finally {
       setIsAnalyzing(false)
     }
@@ -477,3 +571,5 @@ export default function KnowledgeGraphPage() {
     </div>
   )
 }
+
+export default KnowledgeGraphPage;

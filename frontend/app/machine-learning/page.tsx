@@ -198,7 +198,7 @@ export default function MachineLearningPage() {
             </h3>
 
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={model_details}>
+              <BarChart data={modelPerformanceData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" opacity={0.3} />
                 <XAxis dataKey="name" stroke="#718096" fontSize={12} />
                 <YAxis stroke="#718096" fontSize={12} domain={[0, 1]} />

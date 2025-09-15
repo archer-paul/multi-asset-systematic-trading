@@ -5,8 +5,30 @@ import Layout from '@/components/Layout/Layout';
 import { motion } from 'framer-motion';
 import { GlobeAltIcon, ShieldExclamationIcon, FireIcon } from '@heroicons/react/24/outline';
 
+// Define interfaces for our data structure
+interface Risk {
+  risk_type: string;
+  source: string;
+  title: string;
+  link: string;
+  risk_score: number;
+  impact_sectors: string[];
+  timestamp: string;
+}
+
+interface Summary {
+  overall_risk_score: number;
+  top_risk_type: string;
+  top_impacted_sectors: string[];
+}
+
+interface RiskData {
+  risks: Risk[];
+  summary: Summary;
+}
+
 export default function GeopoliticsPage() {
-  const [riskData, setRiskData] = useState(null);
+  const [riskData, setRiskData] = useState<RiskData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,10 +38,15 @@ export default function GeopoliticsPage() {
       try {
         const response = await fetch(`${API_URL}/api/geopolitical-risk`);
         if (!response.ok) throw new Error('Failed to fetch geopolitical data');
-        const data = await response.json();
+        const data: RiskData = await response.json();
         setRiskData(data);
       } catch (error) {
         console.error(error);
+        // Set a default state on error to avoid crash
+        setRiskData({
+          risks: [],
+          summary: { overall_risk_score: 0, top_risk_type: 'Error', top_impacted_sectors: [] }
+        });
       } finally {
         setLoading(false);
       }
@@ -43,7 +70,7 @@ export default function GeopoliticsPage() {
           </motion.div>
           <motion.div className="bg-dark-200 p-6 rounded-lg">
             <h3 className="text-lg font-semibold text-white flex items-center"><FireIcon className="w-6 h-6 mr-2" />Top Risk Type</h3>
-            <p className="text-2xl font-semibold text-white">{summary.top_risk_type.replace('_', ' ').title()}</p>
+            <p className="text-2xl font-semibold text-white">{summary.top_risk_type.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
           </motion.div>
           <motion.div className="bg-dark-200 p-6 rounded-lg">
             <h3 className="text-lg font-semibold text-white flex items-center"><ShieldExclamationIcon className="w-6 h-6 mr-2" />Top Impacted Sectors</h3>
@@ -62,7 +89,7 @@ export default function GeopoliticsPage() {
               <motion.div key={index} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} className="bg-dark-200 p-4 rounded-lg border border-dark-300">
                 <h4 className="font-semibold text-white">{risk.title}</h4>
                 <div className="flex items-center justify-between text-sm text-dark-500 mt-1">
-                  <span>Source: {risk.source} | Type: {risk.risk_type.replace('_', ' ').title()}</span>
+                  <span>Source: {risk.source} | Type: {risk.risk_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
                   <a href={risk.link} target="_blank" rel="noopener noreferrer" className="text-accent-blue hover:underline">Read More</a>
                 </div>
                 <div className="w-full bg-dark-300 rounded-full h-2.5 mt-2">

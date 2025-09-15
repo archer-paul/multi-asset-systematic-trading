@@ -57,8 +57,10 @@ models/
 checkpoints/
 
 # Data files
-data/
-datasets/
+/data/cache/
+/data/models/
+/data/reports/
+/data/backups/
 *.csv
 *.json
 !requirements.json
@@ -98,8 +100,7 @@ temp/
 
 # Analytics and dashboard data
 dashboard_data/
-analytics/
-analysis/
+# analysis/
 
 # Backups
 *.bak
@@ -138,3 +139,5 @@ GCP_DEPLOYMENT.md
 node_modules/
 .next/
 dist/
+frontend/.next/
+frontend/out/

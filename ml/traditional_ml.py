@@ -482,7 +482,7 @@ class TraditionalMLPredictor:
         logger.info(f"Final selected features: {len(final_features)}")
         return final_features
     
-    def optimize_hyperparameters(self, model_name: str, X: np.ndarray, y: np.ndarray) -> Any:
+    async def optimize_hyperparameters(self, model_name: str, X: np.ndarray, y: np.ndarray) -> Any:
         """Optimize hyperparameters for specific models"""
         logger.info(f"Optimizing hyperparameters for {model_name}")
         
@@ -599,7 +599,7 @@ class TraditionalMLPredictor:
                 try:
                     # Hyperparameter optimization for key models
                     if model_name in ['random_forest', 'gradient_boost', 'svr']:
-                        optimized_model = self.optimize_hyperparameters(model_name, X_scaled, y)
+                        optimized_model = await self.optimize_hyperparameters(model_name, X_scaled, y)
                     else:
                         optimized_model = model
                     

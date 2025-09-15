@@ -18,8 +18,8 @@ from core.database import DatabaseManager
 from data.data_collector import DataCollector
 from data.universe_symbols import get_high_priority_symbols, SP500_TOP100
 from ml.ensemble import EnsemblePredictor
-from analysis.risk_manager import RiskManager
-from analysis.portfolio_analyzer import PortfolioAnalyzer
+from trading.risk_manager import RiskManager
+from trading.portfolio_manager import PortfolioManager as PortfolioAnalyzer
 
 # Import Knowledge Graph components
 try:
@@ -92,8 +92,6 @@ async def get_geopolitical_risk():
         # Assuming geopolitical_risks are stored in latest_analysis
         return jsonify(_orchestrator_instance.latest_analysis.get('geopolitical_risks', {'risks': [], 'summary': {}}))
     return jsonify({'error': 'Geopolitical data not available'}), 500
-
-        return jsonify({'error': str(e)}), 500
 
 @dashboard_api.route('/health')
 
@@ -608,8 +606,6 @@ async def get_geopolitical_risk():
         }
     }
     return jsonify(mock_data)
-
-        return jsonify({'error': str(e)}), 500
 
 @dashboard_api.route('/api/sentiment-summary', methods=['GET'])
 def get_sentiment_summary():

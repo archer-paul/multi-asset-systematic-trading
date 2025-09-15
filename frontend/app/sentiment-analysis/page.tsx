@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { GlobeAltIcon, NewspaperIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 export default function SentimentAnalysisPage() {
-  const [sentimentData, setSentimentData] = useState(null);
+  const [sentimentData, setSentimentData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,16 +43,16 @@ export default function SentimentAnalysisPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <h3 className="text-md text-dark-500">Overall Risk Score</h3>
-              <p className="text-3xl font-bold text-red-400">{(macro_summary.overall_risk_score * 100).toFixed(1)}%</p>
+              <p className="text-3xl font-bold text-red-400">{((macro_summary?.overall_risk_score || 0) * 100).toFixed(1)}%</p>
             </div>
             <div>
               <h3 className="text-md text-dark-500">Top Risk Type</h3>
-              <p className="text-xl font-semibold text-white">{macro_summary.top_risk_type.replace('_', ' ').title()}</p>
+              <p className="text-xl font-semibold text-white">{(macro_summary?.top_risk_type || 'N/A').replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</p>
             </div>
             <div>
               <h3 className="text-md text-dark-500">Top Impacted Sectors</h3>
               <div className="flex flex-wrap gap-2 mt-2">
-                {macro_summary.top_impacted_sectors.map(sector => (
+                {(macro_summary?.top_impacted_sectors || []).map((sector: string) => (
                   <span key={sector} className="bg-red-500/20 text-red-300 text-xs font-medium px-2.5 py-0.5 rounded-full">{sector}</span>
                 ))}
               </div>
@@ -64,7 +64,7 @@ export default function SentimentAnalysisPage() {
         <div className="bg-dark-200 p-6 rounded-lg border border-dark-300">
           <h2 className="text-xl font-semibold text-white mb-4 flex items-center"><NewspaperIcon className="w-6 h-6 mr-2 text-accent-purple" />Top News Sentiment</h2>
           <div className="space-y-3">
-            {top_news_sentiment.map((news, index) => (
+            {(top_news_sentiment || []).map((news: any, index: number) => (
               <div key={index} className="flex items-center justify-between p-3 bg-dark-300/50 rounded-lg">
                 <div>
                   <span className="font-mono font-semibold text-white">{news.symbol}</span>
@@ -91,7 +91,7 @@ export default function SentimentAnalysisPage() {
             <div>
               <h3 className="text-md text-dark-500">Top Trending Stocks</h3>
               <div className="space-y-2 mt-2">
-                {social_media_sentiment.trending_stocks.map(stock => (
+                {(social_media_sentiment?.trending_stocks || []).map((stock: any) => (
                   <div key={stock.symbol} className="flex justify-between text-sm">
                     <span className="font-mono text-white">{stock.symbol}</span>
                     <span className={`font-semibold ${stock.sentiment > 0 ? 'text-trading-profit' : 'text-trading-loss'}`}>

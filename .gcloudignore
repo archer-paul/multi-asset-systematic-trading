@@ -20,12 +20,11 @@
 !/analysis/
 !/api/
 !/dashboard/
-!/data/
-!/data/cache/
-!/data/models/
-!/data/reports/
-!/data/backups/
-!/analytics/
+
+# Un-ignore specific source files from the data directory
+!/data/__init__.py
+!/data/data_collector.py
+!/data/universe_symbols.py
 
 # Un-ignore specific configuration files if they exist at the root
 !/.env.template

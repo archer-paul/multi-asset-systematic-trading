@@ -262,24 +262,13 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
         nodes: {
           borderWidth: 2,
           shadow: true,
-          chosen: {
-            node: (values: any) => {
-              values.shadow = true
-              values.shadowSize = 12
-              values.shadowColor = '#58a6ff'
-            }
-          }
+          chosen: true
         },
         edges: {
           shadow: true,
           selectionWidth: 3,
           hoverWidth: 2,
-          chosen: {
-            edge: (values: any) => {
-              values.shadow = true
-              values.shadowColor = '#58a6ff'
-            }
-          }
+          chosen: true
         },
         layout: {
           improvedLayout: false,

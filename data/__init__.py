@@ -1,0 +1,1 @@
+# Data package for trading bot

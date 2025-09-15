@@ -7,7 +7,7 @@ import MetricCard from '@/components/MetricCard'
 import PerformanceChart from '@/components/Charts/PerformanceChart'
 import { api } from '@/lib/api'
 import {
-  TrendingUpIcon,
+  ArrowTrendingUpIcon as TrendingUpIcon,
   CurrencyDollarIcon,
   ChartBarIcon,
   ShieldCheckIcon,
@@ -35,21 +35,20 @@ export default function DashboardPage() {
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 1500))
 
-      const data = generateSampleData()
-      setPerformanceData(data)
+      // No data available - connect to backend API
+      setPerformanceData([])
 
-      // Calculate metrics from data
-      const latestPoint = data[data.length - 1]
-      const totalReturn = ((latestPoint.portfolio - 1) * 100)
-      const dailyReturn = (Math.random() * 2 - 1) // Random daily return
+      // Default metrics when no data
+      const totalReturn = 0
+      const dailyReturn = 0
 
       setMetrics({
-        totalReturn: totalReturn,
-        dailyReturn: dailyReturn,
-        sharpeRatio: 1.85 + Math.random() * 0.3,
-        maxDrawdown: -5.2 - Math.random() * 3,
-        winRate: 65 + Math.random() * 10,
-        activePositions: Math.floor(Math.random() * 20) + 10,
+        totalReturn: 0,
+        dailyReturn: 0,
+        sharpeRatio: 0,
+        maxDrawdown: 0,
+        winRate: 0,
+        activePositions: 0,
       })
 
       setLoading(false)
@@ -95,7 +94,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <MetricCard
               title="Total Return"
-              value={data.metrics.totalReturn}
+              value={metrics.totalReturn}
               change={Math.abs(metrics.totalReturn) > 10 ? 15.2 : -2.1}
               changeType={metrics.totalReturn > 0 ? 'increase' : 'decrease'}
               icon={<TrendingUpIcon className="w-5 h-5" />}

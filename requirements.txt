@@ -61,7 +61,6 @@ aiohttp-wsgi>=0.10.0
 
 # Knowledge Graph dependencies
 networkx>=3.0
-vis-network>=9.1.6
 
 # Optional dependencies for advanced features
 plotly>=5.10.0
