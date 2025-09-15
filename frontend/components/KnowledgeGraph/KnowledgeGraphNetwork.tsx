@@ -43,6 +43,7 @@ interface KnowledgeGraphNetworkProps {
   onEntitySelect: (entityId: string | null) => void
   physicsEnabled: boolean
   onLoading: (loading: boolean) => void
+  onMockModeChanged?: (isUsingMock: boolean) => void
 }
 
 export interface KnowledgeGraphNetworkRef {
@@ -54,7 +55,7 @@ export interface KnowledgeGraphNetworkRef {
 }
 
 const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGraphNetworkProps>(
-  ({ onEntitySelect, physicsEnabled, onLoading }, ref) => {
+  ({ onEntitySelect, physicsEnabled, onLoading, onMockModeChanged }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const networkRef = useRef<Network | null>(null)
     const nodesRef = useRef<DataSet<any> | null>(null)
@@ -129,6 +130,13 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
       const filtersToUse = filters || currentFilters
       setCurrentFilters(filtersToUse)
       onLoading(true)
+
+      // If we're already using mock data, don't try API again
+      if (isUsingMockData) {
+        console.log('Already using mock data, skipping API call')
+        onLoading(false)
+        return
+      }
 
       try {
         console.log('Loading graph data with filters:', filtersToUse)
@@ -222,6 +230,7 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
         }
 
         setIsUsingMockData(false)
+        onMockModeChanged?.(false)
         toast.success(`Graphe chargé: ${data.nodes.length} entités, ${data.links.length} relations`)
 
       } catch (error: any) {
@@ -472,6 +481,7 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
         }
 
         setIsUsingMockData(true)
+        onMockModeChanged?.(true)
         toast.success(`Graphe de démonstration chargé: ${mockData.nodes.length} entités, ${mockData.links.length} relations (backend indisponible)`)
       } finally {
         onLoading(false)
@@ -634,7 +644,10 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
     }))
 
     useEffect(() => {
-      loadData()
+      // Only load data once when component mounts
+      if (!isUsingMockData) {
+        loadData()
+      }
 
       return () => {
         if (networkRef.current) {
@@ -642,7 +655,7 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
           networkRef.current = null
         }
       }
-    }, [])
+    }, []) // Empty dependency array to run only once
 
     useEffect(() => {
       if (networkRef.current) {

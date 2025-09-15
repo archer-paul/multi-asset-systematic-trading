@@ -101,6 +101,7 @@ const KnowledgeGraphPage: FC = () => {
   const [showCascadeAnalysis, setShowCascadeAnalysis] = useState(false)
   const [cascadeResults, setCascadeResults] = useState<CascadeAnalysis | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isUsingMockData, setIsUsingMockData] = useState(false)
 
   const { socket, isConnected } = useSocket()
 
@@ -421,7 +422,7 @@ const KnowledgeGraphPage: FC = () => {
                 {/* Filters Panel */}
                 <GraphFiltersPanel
                   onFiltersChange={(filters) => {
-                    if (networkRef) {
+                    if (networkRef && !isUsingMockData) {
                       networkRef.applyFilters(filters)
                     }
                   }}
@@ -446,6 +447,7 @@ const KnowledgeGraphPage: FC = () => {
               onEntitySelect={handleEntitySelect}
               physicsEnabled={isPhysicsEnabled}
               onLoading={setIsLoading}
+              onMockModeChanged={setIsUsingMockData}
             />
 
             {/* Loading Overlay */}
