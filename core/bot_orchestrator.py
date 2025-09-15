@@ -154,8 +154,11 @@ class TradingBotOrchestrator:
                     days=30
                 )
             
-            self.logger.info("Training machine learning models (parallel mode)...")
-            await self._train_ml_models_parallel(historical_market_data, historical_news, social_data)
+            if not self.config.SKIP_ML_TRAINING:
+                self.logger.info("Training machine learning models (parallel mode)...")
+                await self._train_ml_models_parallel(historical_market_data, historical_news, social_data)
+            else:
+                self.logger.info("Skipping ML model training as per configuration.")
             
             await self.portfolio_manager.initialize()
             await self._save_initial_state()
@@ -180,7 +183,7 @@ class TradingBotOrchestrator:
             current_market_data = await self.data_collector.collect_current_market_data(self.config.ALL_SYMBOLS)
             
             self.logger.debug("Collecting latest news...")
-            latest_news = await self.data_collector.collect_latest_news(self.config.ALL_SYMBOLS)
+            latest_news = await self.data_collector.collect_news_data(self.config.ALL_SYMBOLS)
             
             self.logger.debug("Processing news sentiment...")
             await self._process_news_sentiment(latest_news)

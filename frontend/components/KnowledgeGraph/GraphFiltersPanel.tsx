@@ -18,6 +18,7 @@ interface GraphFilters {
 
 interface GraphFiltersPanelProps {
   onFiltersChange: (filters: GraphFilters) => void
+  isUsingMockData?: boolean
 }
 
 const entityTypeOptions = [
@@ -42,7 +43,7 @@ const regionOptions = [
   { value: 'GLOBAL', label: 'Global', icon: '🌐' }
 ]
 
-export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanelProps) {
+export default function GraphFiltersPanel({ onFiltersChange, isUsingMockData = false }: GraphFiltersPanelProps) {
   const [filters, setFilters] = useState<GraphFilters>({
     entity_types: ['company', 'country', 'currency', 'commodity'],
     regions: ['US', 'EU', 'GLOBAL'],
@@ -51,10 +52,16 @@ export default function GraphFiltersPanel({ onFiltersChange }: GraphFiltersPanel
   })
 
   const [collapsed, setCollapsed] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
-    onFiltersChange(filters)
-  }, [filters, onFiltersChange])
+    // Ne pas déclencher onFiltersChange si on utilise les données mock ou lors de l'initialisation
+    if (!isUsingMockData && isInitialized) {
+      onFiltersChange(filters)
+    } else if (!isInitialized) {
+      setIsInitialized(true)
+    }
+  }, [filters, onFiltersChange, isUsingMockData, isInitialized])
 
   const handleEntityTypeToggle = (entityType: string) => {
     setFilters(prev => ({

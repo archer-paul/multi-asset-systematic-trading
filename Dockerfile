@@ -65,14 +65,6 @@ ENV PATH=/home/tradingbot/.local/bin:$PATH
 # Copy application code (as root to avoid permission issues)
 COPY . .
 
-# Debug: List copied files to verify data directory exists
-RUN echo "=== DEBUG: Listing /app contents ===" && \
-    ls -la /app/ && \
-    echo "=== DEBUG: Checking if data directory exists ===" && \
-    ls -la /app/data/ || echo "data directory not found!" && \
-    echo "=== DEBUG: Python path check ===" && \
-    python3 -c "import sys; print('\\n'.join(sys.path))"
-
 # Create necessary directories and fix all permissions
 RUN mkdir -p logs cache exports dashboard_data data/cache data/reports data/models data/backups && \
     chown -R tradingbot:tradingbot /app

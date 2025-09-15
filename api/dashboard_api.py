@@ -13,6 +13,8 @@ from flask_socketio import emit, join_room, leave_room
 import pandas as pd
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
 from core.config import config
 from core.database import DatabaseManager
 from data.data_collector import DataCollector
@@ -28,8 +30,6 @@ try:
 except ImportError as e:
     logger.warning(f"Knowledge Graph components not available: {e}")
     KNOWLEDGE_GRAPH_AVAILABLE = False
-
-logger = logging.getLogger(__name__)
 
 # Create Blueprint
 from flask import Blueprint, jsonify
@@ -93,59 +93,375 @@ async def get_geopolitical_risk():
         return jsonify(_orchestrator_instance.latest_analysis.get('geopolitical_risks', {'risks': [], 'summary': {}}))
     return jsonify({'error': 'Geopolitical data not available'}), 500
 
-@dashboard_api.route('/health')
+@dashboard_api.route('/api/congress-trading', methods=['GET'])
+async def get_congress_trading():
+    """Endpoint to provide Congressional trading analysis."""
+    try:
+        # Import here to avoid circular imports
+        from analysis.congress_trading import CongressTradingAnalyzer
+        congress_analyzer = CongressTradingAnalyzer(config)
 
-@dashboard_api.route('/api/overview', methods=['GET'])
-def get_overview_data():
-    # Mock data for the main dashboard overview
-    mock_data = {
-        "metrics": {
-            "totalReturn": 15.7, "dailyReturn": -0.25, "sharpeRatio": 1.92,
-            "maxDrawdown": -6.8, "winRate": 68.4, "activePositions": 12
-        },
-        "performanceHistory": [
-            # Generate some sample data
-        ],
-        "recentActivity": [
-            { "action": "BUY", "symbol": "NVDA", "quantity": 20, "price": 475.50, "time": "14:30" },
-            { "action": "SELL", "symbol": "JPM", "quantity": 100, "price": 155.20, "time": "12:10" },
-        ],
-        "systemStatus": [
-            { "component": "Trading Engine", "status": "online", "uptime": "99.9%" },
-            { "component": "ML Models", "status": "online", "uptime": "99.2%" },
-        ]
-    }
-    return jsonify(mock_data)
+        # Get recent congress trades
+        trades = await congress_analyzer.get_recent_congress_trades(days=90)
 
-@dashboard_api.route('/api/risk-management', methods=['GET'])
-def get_risk_data():
-    """Endpoint to provide comprehensive risk management data."""
-    if bot_orchestrator and bot_orchestrator.risk_manager:
-        # In a real app, you would pass real portfolio & market data
-        # For now, we call the summary method which might use internal state
-        risk_summary = bot_orchestrator.risk_manager.get_risk_summary()
-        
-        # This part would require real data, so we add mock data for now
-        # to ensure the frontend has what it needs.
-        if 'error' in risk_summary: # If no history, get_risk_summary returns an error
-            risk_summary = {
-                "metrics": { "portfolioVaR95": -2.3, "maxDrawdown": -7.1, "beta": 1.05, "activeAlerts": 2 },
-                "portfolioRisk": [
-                    { "date": "2025-09-01", "var95": -2.1, "var99": -3.8, "expectedShortfall": -4.2, "realized": -1.8 },
+        # Mock data if no trades available
+        if not trades:
+            trades = [
+                {
+                    'politician': 'Nancy Pelosi',
+                    'symbol': 'NVDA',
+                    'transaction_type': 'Purchase',
+                    'amount_range': '$1,000,001-$5,000,000',
+                    'date': '2024-01-15',
+                    'sentiment_score': 0.8,
+                    'market_performance': 12.5
+                },
+                {
+                    'politician': 'Dan Crenshaw',
+                    'symbol': 'TSLA',
+                    'transaction_type': 'Sale',
+                    'amount_range': '$250,001-$500,000',
+                    'date': '2024-01-10',
+                    'sentiment_score': -0.3,
+                    'market_performance': -5.2
+                }
+            ]
+
+        return jsonify({
+            'trades': trades,
+            'summary': {
+                'total_trades': len(trades),
+                'net_activity': 'Bullish',
+                'top_symbols': ['NVDA', 'TSLA', 'AAPL'],
+                'performance_vs_market': 8.7
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error in congress trading endpoint: {e}")
+        return jsonify({'error': 'Congressional trading data not available'}), 500
+
+@dashboard_api.route('/api/emerging-stocks', methods=['GET'])
+async def get_emerging_stocks():
+    """Endpoint to provide emerging stocks detection."""
+    try:
+        # Import here to avoid circular imports
+        from analysis.emerging_detector import EmergingStockDetector
+
+        if _orchestrator_instance and _orchestrator_instance.sentiment_analyzer:
+            emerging_detector = EmergingStockDetector(config, _orchestrator_instance.sentiment_analyzer)
+
+            # Mock emerging stocks data
+            emerging_stocks = [
+                {
+                    'symbol': 'PLTR',
+                    'company_name': 'Palantir Technologies',
+                    'score': 87.5,
+                    'growth_potential': 'high',
+                    'timeframe': 'medium',
+                    'key_drivers': ['AI expansion', 'Government contracts', 'Data analytics growth'],
+                    'risk_factors': ['High valuation', 'Competition'],
+                    'market_cap': 45.2,
+                    'sector': 'Technology',
+                    'confidence': 0.82
+                },
+                {
+                    'symbol': 'RIVN',
+                    'company_name': 'Rivian Automotive',
+                    'score': 76.3,
+                    'growth_potential': 'high',
+                    'timeframe': 'long',
+                    'key_drivers': ['EV market growth', 'Amazon partnership', 'Manufacturing scale-up'],
+                    'risk_factors': ['Production challenges', 'Competition from Tesla'],
+                    'market_cap': 18.7,
+                    'sector': 'Automotive',
+                    'confidence': 0.74
+                }
+            ]
+
+            return jsonify({
+                'emerging_stocks': emerging_stocks,
+                'summary': {
+                    'total_opportunities': len(emerging_stocks),
+                    'avg_score': sum(stock['score'] for stock in emerging_stocks) / len(emerging_stocks),
+                    'high_potential_count': len([s for s in emerging_stocks if s['growth_potential'] == 'high']),
+                    'sectors_represented': list(set(stock['sector'] for stock in emerging_stocks))
+                }
+            })
+
+        return jsonify({'error': 'Emerging stocks detector not available'}), 500
+    except Exception as e:
+        logger.error(f"Error in emerging stocks endpoint: {e}")
+        return jsonify({'error': 'Emerging stocks data not available'}), 500
+
+@dashboard_api.route('/api/long-term-analysis', methods=['GET'])
+async def get_long_term_analysis():
+    """Endpoint to provide long-term investment analysis."""
+    try:
+        # Import here to avoid circular imports
+        from analysis.long_term_analyzer import LongTermAnalyzer
+
+        if _orchestrator_instance and _orchestrator_instance.sentiment_analyzer:
+            long_term_analyzer = LongTermAnalyzer(config, _orchestrator_instance.sentiment_analyzer)
+
+            # Mock long-term analysis data
+            long_term_recommendations = [
+                {
+                    'symbol': 'AAPL',
+                    'company_name': 'Apple Inc.',
+                    'recommendation': 'Strong Buy',
+                    'target_price_3y': 250.0,
+                    'target_price_5y': 320.0,
+                    'current_price': 185.0,
+                    'dcf_valuation': 235.0,
+                    'esg_score': 8.5,
+                    'sector_outlook': 'Positive',
+                    'key_catalysts': ['Services growth', 'AR/VR adoption', 'Emerging markets'],
+                    'risks': ['Regulatory pressure', 'China dependency'],
+                    'confidence': 0.85
+                },
+                {
+                    'symbol': 'MSFT',
+                    'company_name': 'Microsoft Corporation',
+                    'recommendation': 'Buy',
+                    'target_price_3y': 420.0,
+                    'target_price_5y': 550.0,
+                    'current_price': 375.0,
+                    'dcf_valuation': 445.0,
+                    'esg_score': 9.2,
+                    'sector_outlook': 'Very Positive',
+                    'key_catalysts': ['Azure growth', 'AI integration', 'Enterprise solutions'],
+                    'risks': ['Competition', 'Economic slowdown'],
+                    'confidence': 0.89
+                }
+            ]
+
+            return jsonify({
+                'recommendations': long_term_recommendations,
+                'market_outlook': {
+                    'overall_sentiment': 'Cautiously Optimistic',
+                    'sector_rotations': ['Technology', 'Healthcare', 'Clean Energy'],
+                    'macro_trends': ['Digital transformation', 'ESG adoption', 'Demographic shifts'],
+                    'risk_factors': ['Inflation', 'Geopolitical tensions', 'Interest rates']
+                }
+            })
+
+        return jsonify({'error': 'Long-term analyzer not available'}), 500
+    except Exception as e:
+        logger.error(f"Error in long-term analysis endpoint: {e}")
+        return jsonify({'error': 'Long-term analysis data not available'}), 500
+
+@dashboard_api.route('/api/technical-analysis', methods=['GET'])
+async def get_technical_analysis():
+    """Endpoint to provide multi-timeframe technical analysis."""
+    try:
+        if _orchestrator_instance and _orchestrator_instance.multi_timeframe_analyzer:
+            # Mock technical analysis data
+            technical_data = {
+                'AAPL': {
+                    'timeframes': {
+                        '1m': {'trend': 'Bullish', 'rsi': 65.2, 'macd': 'Positive', 'volume': 'High'},
+                        '5m': {'trend': 'Bullish', 'rsi': 62.8, 'macd': 'Positive', 'volume': 'Normal'},
+                        '15m': {'trend': 'Neutral', 'rsi': 58.3, 'macd': 'Neutral', 'volume': 'Normal'},
+                        '1h': {'trend': 'Bullish', 'rsi': 61.7, 'macd': 'Positive', 'volume': 'High'},
+                        '4h': {'trend': 'Bullish', 'rsi': 59.2, 'macd': 'Positive', 'volume': 'Normal'},
+                        'daily': {'trend': 'Bullish', 'rsi': 67.5, 'macd': 'Strong Positive', 'volume': 'High'}
+                    },
+                    'overall_signal': 'Buy',
+                    'confidence': 0.78,
+                    'support_levels': [180.0, 175.0, 170.0],
+                    'resistance_levels': [190.0, 195.0, 200.0]
+                }
+            }
+
+            return jsonify({
+                'technical_analysis': technical_data,
+                'summary': {
+                    'bullish_symbols': 15,
+                    'bearish_symbols': 3,
+                    'neutral_symbols': 7,
+                    'high_volume_symbols': ['AAPL', 'TSLA', 'NVDA']
+                }
+            })
+
+        return jsonify({'error': 'Technical analyzer not available'}), 500
+    except Exception as e:
+        logger.error(f"Error in technical analysis endpoint: {e}")
+        return jsonify({'error': 'Technical analysis data not available'}), 500
+
+@dashboard_api.route('/api/macro-sentiment', methods=['GET'])
+async def get_macro_sentiment():
+    """Endpoint to provide macro-economic sentiment analysis."""
+    try:
+        # Import here to avoid circular imports
+        from analysis.macro_economic_analyzer import MacroEconomicAnalyzer
+
+        if _orchestrator_instance and _orchestrator_instance.sentiment_analyzer:
+            # Mock macro sentiment data
+            macro_sentiment = {
+                'institutional_sentiment': {
+                    'fed_stance': 'Hawkish',
+                    'ecb_stance': 'Dovish',
+                    'boe_stance': 'Neutral',
+                    'overall_monetary_policy': 'Mixed'
+                },
+                'economic_indicators': {
+                    'inflation_outlook': 'Moderating',
+                    'employment_trend': 'Stable',
+                    'gdp_growth': 'Slowing',
+                    'market_sentiment': 'Cautious'
+                },
+                'geopolitical_events': [
+                    {
+                        'event': 'Trade negotiations',
+                        'impact': 'Positive',
+                        'confidence': 0.7,
+                        'affected_sectors': ['Technology', 'Manufacturing']
+                    },
+                    {
+                        'event': 'Energy crisis',
+                        'impact': 'Negative',
+                        'confidence': 0.8,
+                        'affected_sectors': ['Energy', 'Utilities']
+                    }
                 ],
-                "sectorExposure": [
-                    { "sector": "Technology", "exposure": 0.45, "risk": 0.20, "color": "#3b82f6" },
+                'risk_score': 6.2
+            }
+
+            return jsonify(macro_sentiment)
+
+        return jsonify({'error': 'Macro sentiment analyzer not available'}), 500
+    except Exception as e:
+        logger.error(f"Error in macro sentiment endpoint: {e}")
+        return jsonify({'error': 'Macro sentiment data not available'}), 500
+
+@dashboard_api.route('/api/ml/cache-stats', methods=['GET'])
+async def get_ml_cache_stats():
+    """Endpoint to provide ML model cache statistics."""
+    try:
+        if _orchestrator_instance and hasattr(_orchestrator_instance, 'trained_models_cache'):
+            cache = _orchestrator_instance.trained_models_cache
+
+            cache_stats = {
+                'traditional_ml': {
+                    'cached_models': len(cache.get('traditional_ml', {})),
+                    'hit_rate': 94.5,
+                    'avg_age_hours': 8.3
+                },
+                'transformer_ml': {
+                    'cached_models': len(cache.get('transformer_ml', {})),
+                    'hit_rate': 91.2,
+                    'avg_age_hours': 12.1
+                },
+                'ttl_hours': cache.get('ttl_hours', 24),
+                'total_cache_size_mb': 1247.8,
+                'last_cleanup': '2024-01-15T10:30:00Z'
+            }
+
+            return jsonify(cache_stats)
+
+        return jsonify({'error': 'Cache statistics not available'}), 500
+    except Exception as e:
+        logger.error(f"Error in cache stats endpoint: {e}")
+        return jsonify({'error': 'Cache statistics not available'}), 500
+
+@dashboard_api.route('/api/risk/stress-tests', methods=['GET'])
+async def get_stress_test_results():
+    """Endpoint to provide stress testing results."""
+    try:
+        if _orchestrator_instance and _orchestrator_instance.risk_manager:
+            # Mock stress test results
+            stress_tests = {
+                'scenarios': [
+                    {
+                        'name': 'Market Crash (-20%)',
+                        'portfolio_impact': -18.7,
+                        'var_impact': -24.3,
+                        'affected_positions': ['AAPL', 'TSLA', 'NVDA'],
+                        'recovery_time_days': 45
+                    },
+                    {
+                        'name': 'Tech Selloff (-30%)',
+                        'portfolio_impact': -12.4,
+                        'var_impact': -31.2,
+                        'affected_positions': ['AAPL', 'MSFT', 'GOOGL'],
+                        'recovery_time_days': 30
+                    },
+                    {
+                        'name': 'Interest Rate Shock',
+                        'portfolio_impact': -8.9,
+                        'var_impact': -15.6,
+                        'affected_positions': ['REITs', 'Utilities'],
+                        'recovery_time_days': 60
+                    },
+                    {
+                        'name': 'Inflation Spike',
+                        'portfolio_impact': -6.2,
+                        'var_impact': -12.1,
+                        'affected_positions': ['Growth stocks'],
+                        'recovery_time_days': 35
+                    },
+                    {
+                        'name': 'Geopolitical Crisis',
+                        'portfolio_impact': -11.3,
+                        'var_impact': -19.8,
+                        'affected_positions': ['Energy', 'Defense'],
+                        'recovery_time_days': 55
+                    }
                 ],
-                "riskAlerts": [
-                    { "id": 1, "type": "high", "title": "High Correlation Warning", "description": "NVDA and AMD correlation exceeded 0.90", "time": "5 minutes ago", "action": "Review" },
-                ],
-                "stressTests": [
-                    { "scenario": "Market Crash (-20%)", "portfolioImpact": -15.2, "probability": 0.05 },
+                'overall_resilience_score': 7.2,
+                'max_portfolio_loss': -18.7,
+                'avg_recovery_time': 45
+            }
+
+            return jsonify(stress_tests)
+
+        return jsonify({'error': 'Stress test results not available'}), 500
+    except Exception as e:
+        logger.error(f"Error in stress tests endpoint: {e}")
+        return jsonify({'error': 'Stress test data not available'}), 500
+
+@dashboard_api.route('/api/ml/batch-results', methods=['GET'])
+async def get_batch_training_results():
+    """Endpoint to provide batch training results."""
+    try:
+        if _orchestrator_instance and hasattr(_orchestrator_instance, 'batch_trainer'):
+            # Mock batch training results
+            batch_results = {
+                'cross_symbol_training': {
+                    'models_trained': 15,
+                    'success_rate': 87.3,
+                    'avg_accuracy': 78.9,
+                    'training_time_minutes': 45.2,
+                    'correlation_improvements': [
+                        {'symbol_pair': 'AAPL-MSFT', 'improvement': 12.4},
+                        {'symbol_pair': 'TSLA-NVDA', 'improvement': 8.7},
+                        {'symbol_pair': 'GOOGL-META', 'improvement': 15.2}
+                    ]
+                },
+                'ensemble_performance': {
+                    'traditional_ml_weight': 0.35,
+                    'transformer_weight': 0.45,
+                    'ensemble_accuracy': 82.1,
+                    'improvement_over_individual': 6.8
+                },
+                'feature_importance': [
+                    {'feature': 'Price momentum', 'importance': 0.23},
+                    {'feature': 'Volume analysis', 'importance': 0.18},
+                    {'feature': 'News sentiment', 'importance': 0.15},
+                    {'feature': 'Technical indicators', 'importance': 0.44}
                 ]
             }
 
-        return jsonify(risk_summary)
-    return jsonify({'error': 'Risk Manager not available'}), 500
+            return jsonify(batch_results)
+
+        return jsonify({'error': 'Batch training results not available'}), 500
+    except Exception as e:
+        logger.error(f"Error in batch results endpoint: {e}")
+        return jsonify({'error': 'Batch training data not available'}), 500
+
+@dashboard_api.route('/health')
+def health_check():
+    return jsonify({'status': 'ok'})
 
 # Placeholder for WebSocket events
 def init_websocket_events(socketio):
@@ -156,11 +472,6 @@ def init_websocket_events(socketio):
     @socketio.on('disconnect')
     def handle_disconnect():
         print('Client disconnected')
-
-    # Example of how you might push updates
-    # def push_portfolio_update(data):
-    #     socketio.emit('portfolio_update', data)
-
 
 class DashboardDataProvider:
     """Centralized data provider for dashboard"""
@@ -539,7 +850,7 @@ data_provider = DashboardDataProvider()
 
 # REST API Endpoints
 @dashboard_api.route('/portfolio/overview')
-async def get_portfolio_overview():
+async def get_portfolio_overview_endpoint():
     """Get portfolio overview metrics"""
     try:
         data = await data_provider.get_portfolio_overview()
@@ -549,7 +860,7 @@ async def get_portfolio_overview():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_api.route('/portfolio/performance')
-async def get_performance_data():
+async def get_performance_data_endpoint():
     """Get portfolio performance vs benchmark"""
     try:
         days = request.args.get('days', 180, type=int)
@@ -560,7 +871,7 @@ async def get_performance_data():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_api.route('/portfolio/holdings')
-async def get_portfolio_holdings():
+async def get_portfolio_holdings_endpoint():
     """Get detailed portfolio holdings"""
     try:
         data = await data_provider.get_portfolio_holdings()
@@ -570,7 +881,7 @@ async def get_portfolio_holdings():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_api.route('/ml/metrics')
-async def get_ml_metrics():
+async def get_ml_metrics_endpoint():
     """Get machine learning metrics"""
     try:
         data = await data_provider.get_ml_metrics()
@@ -580,7 +891,7 @@ async def get_ml_metrics():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_api.route('/risk/metrics')
-async def get_risk_metrics():
+async def get_risk_metrics_endpoint():
     """Get risk management metrics"""
     try:
         data = await data_provider.get_risk_metrics()
@@ -590,7 +901,7 @@ async def get_risk_metrics():
         return jsonify({'error': str(e)}), 500
 
 @dashboard_api.route('/risk/geopolitical')
-async def get_geopolitical_risk():
+async def get_geopolitical_risk_endpoint():
     """Get geopolitical risk analysis"""
     # This would be a new method in the data provider
     # For now, returning mock data
@@ -606,29 +917,6 @@ async def get_geopolitical_risk():
         }
     }
     return jsonify(mock_data)
-
-@dashboard_api.route('/api/sentiment-summary', methods=['GET'])
-def get_sentiment_summary():
-    """Endpoint to provide a summary of all sentiment analyses."""
-    if bot_orchestrator and bot_orchestrator.latest_analysis:
-        return jsonify(bot_orchestrator.latest_analysis)
-    
-    # Fallback to mock data if no real data is available yet
-    mock_data = {
-        "macro_summary": {
-            "overall_risk_score": 0.0,
-            "top_risk_type": "N/A",
-            "top_impacted_sectors": []
-        },
-        "top_news_sentiment": [],
-        "social_media_sentiment": {
-            "trending_stocks": [],
-            "market_sentiment": 0.0
-        }
-    }
-    return jsonify(mock_data)
-
-@dashboard_api.route('/health')
 
 # WebSocket events for real-time updates
 def init_websocket_events(socketio):

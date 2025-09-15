@@ -275,12 +275,11 @@ gcloud run deploy $ServiceName `
     --platform=managed `
     --region=$Region `
     --allow-unauthenticated `
-    --memory=4Gi `
-    --cpu=2 `
+    --memory=8Gi `
+    --cpu=4 `
     --timeout=3600 `
     --concurrency=1 `
     --max-instances=1 `
-    --port=8080 `
     --set-env-vars="DATABASE_URL=postgresql://postgres:@/$DbConnectionName/trading_bot" `
     --set-env-vars="REDIS_URL=redis://$($RedisHost):$RedisPort" `
     --set-env-vars="TRADING_MODE=fast_mode" `
@@ -290,7 +289,9 @@ gcloud run deploy $ServiceName `
     --set-env-vars="ENABLE_TRADITIONAL_ML=true" `
     --set-env-vars="ENABLE_TRANSFORMER_ML=false" `
     --set-env-vars="ENABLE_KNOWLEDGE_GRAPH=true" `
+    --set-env-vars="SKIP_ML_TRAINING=true" `
     --set-env-vars="PYTHONUNBUFFERED=1" `
+    --set-env-vars="PYTHONPATH=/app" `
     --set-secrets="GEMINI_API_KEY=gemini-api-key:latest" `
     --set-secrets="NEWS_API_KEY=news-api-key:latest" `
     --set-secrets="ALPHA_VANTAGE_KEY=alpha-vantage-key:latest" `

@@ -426,6 +426,7 @@ const KnowledgeGraphPage: FC = () => {
                       networkRef.applyFilters(filters)
                     }
                   }}
+                  isUsingMockData={isUsingMockData}
                 />
 
                 {/* Cascade Analysis Panel */}

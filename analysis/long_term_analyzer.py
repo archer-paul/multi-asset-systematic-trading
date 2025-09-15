@@ -579,7 +579,7 @@ class LongTermAnalyzer:
         
         try:
             response = await asyncio.to_thread(
-                self.sentiment_analyzer.gemini_client.generate_content, prompt
+                self.sentiment_analyzer.gemini_analyzer.generate_content, prompt
             )
             
             # Extraire le score numérique
@@ -679,7 +679,7 @@ class LongTermAnalyzer:
         
         try:
             response = await asyncio.to_thread(
-                self.sentiment_analyzer.gemini_client.generate_content, prompt
+                self.sentiment_analyzer.gemini_analyzer.generate_content, prompt
             )
             
             # Parser la réponse JSON

@@ -52,6 +52,7 @@ export interface KnowledgeGraphNetworkRef {
   exportToPNG: () => void
   fitNetwork: () => void
   togglePhysics: (enabled: boolean) => void
+  isUsingMockData: () => boolean
 }
 
 const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGraphNetworkProps>(
@@ -640,7 +641,8 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
       applyFilters,
       exportToPNG,
       fitNetwork,
-      togglePhysics
+      togglePhysics,
+      isUsingMockData: () => isUsingMockData
     }))
 
     useEffect(() => {

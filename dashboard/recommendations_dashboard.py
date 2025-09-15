@@ -450,7 +450,7 @@ OPPORTUNITÉS ÉMERGENTES:
 INVESTISSEMENT LONG TERME:
 • Recommandations qualité: {long_term['total_recommendations']}
 • Secteurs analysés: {len(long_term['sectors'])}
-• Portfolio diversifié: {len(long_term['diversified_portfolio'])} positions
+• Portfolio diversifié: {len(long_term.get('diversified_portfolio', []))} positions
 
 TRANSACTIONS DU CONGRÈS:
 • Signaux détectés: {self.dashboard_data['congress_trading']['total_signals']}

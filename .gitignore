@@ -141,3 +141,6 @@ node_modules/
 dist/
 frontend/.next/
 frontend/out/
+
+#Firebase
+.firebase/
