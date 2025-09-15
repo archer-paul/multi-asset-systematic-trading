@@ -183,7 +183,7 @@ class TradingBotOrchestrator:
             current_market_data = await self.data_collector.collect_current_market_data(self.config.ALL_SYMBOLS)
             
             self.logger.debug("Collecting latest news...")
-            latest_news = await self.data_collector.collect_news_data(self.config.ALL_SYMBOLS)
+                        latest_news = await self.data_collector.collect_news_data(self.config.ALL_SYMBOLS)
             
             self.logger.debug("Processing news sentiment...")
             await self._process_news_sentiment(latest_news)

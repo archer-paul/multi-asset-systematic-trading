@@ -65,4 +65,5 @@ networkx>=3.0
 # Optional dependencies for advanced features
 plotly>=5.10.0
 dash>=2.6.0
-streamlit>=1.12.0
+streamlit>=1.12.0gunicorn  
+eventlet 

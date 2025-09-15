@@ -30,7 +30,7 @@ WORKDIR /app
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --user --timeout 300 -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim
@@ -78,20 +78,10 @@ ENV PYTHONUNBUFFERED=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+    CMD curl -f http://localhost:5000/health || exit 1
 
-# Expose port for Cloud Run (using environment variable)
-EXPOSE ${PORT:-8080}
+# Expose port for the dashboard server
+EXPOSE 5000
 
-# Create startup script for better Cloud Run compatibility
-RUN echo '#!/bin/bash\n\
-echo "Starting Trading Bot on port ${PORT:-8080}..."\n\
-echo "Environment check:"\n\
-echo "PORT=${PORT:-8080}"\n\
-echo "PYTHONPATH=${PYTHONPATH}"\n\
-echo "Starting enhanced_main.py..."\n\
-exec python enhanced_main.py' > /app/start.sh && \
-    chmod +x /app/start.sh
-
-# Default command with startup script
-CMD ["/app/start.sh"]
+# Command to run the application using Gunicorn
+CMD ["gunicorn", "-w", "1", "-k", "eventlet", "-b", ":5000", "--timeout", "300", "--graceful-timeout", "300", "run_dashboard:create_socketio_app()"]

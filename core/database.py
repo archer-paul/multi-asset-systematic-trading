@@ -26,8 +26,8 @@ class DatabaseManager:
             config = default_config
         
         self.config = config
-        self.db_config = self._parse_database_url(config.database_url)
-        self.redis_config = self._parse_redis_url(config.redis_url)
+        self.db_config = self._parse_database_url(config.database_url or os.getenv('DATABASE_URL'))
+        self.redis_config = self._parse_redis_url(config.redis_url or os.getenv('REDIS_URL'))
         self.connection = None
         self.redis_client = None
         self.redis_process = None

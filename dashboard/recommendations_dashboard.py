@@ -247,14 +247,15 @@ class RecommendationsDashboard:
         analyzer = LongTermAnalyzer(self.config, None)
         diversified = analyzer.get_diversified_portfolio(recommendations, max_stocks=12, max_per_sector=2)
         
-        for rec in diversified:
-            formatted['diversified_portfolio'].append({
-                'symbol': rec.symbol,
-                'sector': rec.sector,
-                'allocation_suggested': f"{100/len(diversified):.1f}%",
-                'score': f"{rec.overall_score:.0f}/100",
-                'expected_return': f"{rec.expected_return_3y:.1f}%"
-            })
+        if long_term and long_term.get('diversified_portfolio'):
+            for rec in long_term['diversified_portfolio']:
+                formatted['diversified_portfolio'].append({
+                    'symbol': rec.symbol,
+                    'sector': rec.sector,
+                    'allocation_suggested': f"{100/len(long_term['diversified_portfolio']):.1f}%",
+                    'score': f"{rec.overall_score:.0f}/100",
+                    'expected_return': f"{rec.expected_return_3y:.1f}%"
+                })
         
         return formatted
     

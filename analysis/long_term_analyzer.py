@@ -546,7 +546,7 @@ class LongTermAnalyzer:
     async def _analyze_competitive_moat(self, symbol: str, info: Dict) -> float:
         """Utilise l'IA pour analyser l'avantage concurrentiel"""
         
-        if not self.sentiment_analyzer.gemini_client:
+        if not self.sentiment_analyzer.gemini_analyzer:
             return 7.5  # Score neutre
         
         business_summary = info.get('longBusinessSummary', '')
@@ -633,7 +633,7 @@ class LongTermAnalyzer:
     async def _generate_long_term_analysis(self, symbol: str, stock_data: Dict, scores: Dict) -> Dict:
         """Génère une analyse IA complète pour l'investissement long terme"""
         
-        if not self.sentiment_analyzer.gemini_client:
+        if not self.sentiment_analyzer.gemini_analyzer:
             return self._generate_fallback_analysis(stock_data, scores)
         
         info = stock_data['info']
