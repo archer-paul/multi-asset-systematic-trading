@@ -6,7 +6,7 @@ import Layout from '@/components/Layout/Layout'
 import MetricCard from '@/components/MetricCard'
 import { api } from '@/lib/api'
 import {
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   SparklesIcon,
   ClockIcon,
   ExclamationTriangleIcon,
@@ -44,11 +44,17 @@ export default function EmergingStocksPage() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<string | null>(null)
 
   useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const loadEmergingStocks = async () => {
       setLoading(true)
       try {
-        const response = await api.get('/emerging-stocks')
-        setEmergingData(response.data)
+        const response = await fetch(`${API_URL}/api/emerging-stocks`)
+        if (response.ok) {
+          const data = await response.json();
+          setEmergingData(data);
+        } else {
+          throw new Error('API not available');
+        }
       } catch (error) {
         console.error('Failed to load emerging stocks data:', error)
         // Mock data fallback
@@ -155,8 +161,8 @@ export default function EmergingStocksPage() {
     return sectorMatch && timeframeMatch
   })
 
-  const sectors = [...new Set(emergingData?.emerging_stocks.map(stock => stock.sector) || [])]
-  const timeframes = [...new Set(emergingData?.emerging_stocks.map(stock => stock.timeframe) || [])]
+  const sectors = Array.from(new Set(emergingData?.emerging_stocks.map(stock => stock.sector) || []))
+  const timeframes = Array.from(new Set(emergingData?.emerging_stocks.map(stock => stock.timeframe) || []))
 
   return (
     <Layout title="Emerging Stocks Detection" subtitle="AI-Powered Growth Stock Identification">
@@ -166,35 +172,26 @@ export default function EmergingStocksPage() {
           <MetricCard
             title="Total Opportunities"
             value={emergingData?.summary.total_opportunities || 0}
-            icon={EyeIcon}
+            icon={<EyeIcon className="w-5 h-5" />}
             loading={loading}
-            trend="neutral"
-            formatType="number"
           />
           <MetricCard
             title="Average Score"
-            value={emergingData?.summary.avg_score || 0}
-            icon={TrendingUpIcon}
+            value={`${emergingData?.summary.avg_score || 0}/100`}
+            icon={<ArrowTrendingUpIcon className="w-5 h-5" />}
             loading={loading}
-            trend="positive"
-            formatType="number"
-            suffix="/100"
           />
           <MetricCard
             title="High Potential"
             value={emergingData?.summary.high_potential_count || 0}
-            icon={SparklesIcon}
+            icon={<SparklesIcon className="w-5 h-5" />}
             loading={loading}
-            trend="positive"
-            formatType="number"
           />
           <MetricCard
             title="Sectors Covered"
             value={emergingData?.summary.sectors_represented.length || 0}
-            icon={CpuChipIcon}
+            icon={<CpuChipIcon className="w-5 h-5" />}
             loading={loading}
-            trend="neutral"
-            formatType="number"
           />
         </div>
 
@@ -316,7 +313,7 @@ export default function EmergingStocksPage() {
               {/* Key Drivers */}
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-trading-profit mb-2 flex items-center">
-                  <TrendingUpIcon className="w-4 h-4 mr-1" />
+                  <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                   Growth Drivers
                 </h4>
                 <div className="space-y-1">

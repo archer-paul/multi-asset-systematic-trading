@@ -142,7 +142,29 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
       try {
         console.log('Loading graph data with filters:', filtersToUse)
         const response = await knowledgeGraphAPI.getVisualizationData(filtersToUse)
-        const data: GraphData = response.data
+        const rawData = response.data
+        // Transform the data to match expected interfaces
+        const data: GraphData = {
+          nodes: rawData.nodes.map((node: any) => ({
+            id: node.id,
+            name: node.name || node.label || node.id,
+            type: node.type,
+            region: node.region || 'Unknown',
+            importance: node.importance || 0.5,
+            size: node.size || 10,
+            color: node.color || '#3b82f6',
+            metadata: node.metadata || {}
+          })),
+          links: (rawData.edges || []).map((link: any) => ({
+            source: link.source || link.from,
+            target: link.target || link.to,
+            type: link.type || 'relationship',
+            strength: link.strength || link.weight || 1,
+            width: link.width || 2,
+            color: link.color || '#718096',
+            metadata: link.metadata || {}
+          }))
+        }
 
         console.log(`Loaded ${data.nodes.length} nodes and ${data.links.length} links`)
 

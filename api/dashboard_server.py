@@ -10,6 +10,7 @@ import eventlet
 
 # Import API blueprints and initializers
 from api.dashboard_api import dashboard_api, init_websocket_events, set_orchestrator_instance
+from api.advanced_portfolio_api import create_advanced_portfolio_bp, set_bot_orchestrator
 
 try:
     from knowledge_graph.kg_api import kg_api, init_kg_websocket_events
@@ -43,6 +44,12 @@ def create_flask_app(bot_orchestrator):
     flask_app = Flask(__name__)
     flask_app.register_blueprint(dashboard_api, url_prefix='/api')
     logger.info("Registered dashboard_api blueprint under /api.")
+
+    # Register advanced portfolio API
+    advanced_bp = create_advanced_portfolio_bp()
+    flask_app.register_blueprint(advanced_bp)
+    set_bot_orchestrator(bot_orchestrator)  # Inject bot orchestrator
+    logger.info("Registered advanced_portfolio_api blueprint under /api/advanced.")
 
     if KNOWLEDGE_GRAPH_AVAILABLE:
         flask_app.register_blueprint(kg_api)

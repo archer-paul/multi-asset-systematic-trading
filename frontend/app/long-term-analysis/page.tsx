@@ -7,7 +7,7 @@ import MetricCard from '@/components/MetricCard'
 import { api } from '@/lib/api'
 import {
   ClockIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   CurrencyDollarIcon,
   ChartBarIcon,
   ShieldCheckIcon,
@@ -48,11 +48,17 @@ export default function LongTermAnalysisPage() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'3y' | '5y'>('3y')
 
   useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const loadLongTermData = async () => {
       setLoading(true)
       try {
-        const response = await api.get('/long-term-analysis')
-        setLongTermData(response.data)
+        const response = await fetch(`${API_URL}/api/long-term-analysis`)
+        if (response.ok) {
+          const data = await response.json();
+          setLongTermData(data);
+        } else {
+          throw new Error('API not available');
+        }
       } catch (error) {
         console.error('Failed to load long-term analysis data:', error)
         // Mock data fallback
@@ -153,13 +159,13 @@ export default function LongTermAnalysisPage() {
     return ((target - current) / current) * 100
   }
 
-  const avgTargetPrice = longTermData?.recommendations.reduce((sum, rec) =>
+  const avgTargetPrice = (longTermData?.recommendations || []).reduce((sum, rec) =>
     sum + (selectedTimeframe === '3y' ? rec.target_price_3y : rec.target_price_5y), 0
-  ) / (longTermData?.recommendations.length || 1) || 0
+  ) / (longTermData?.recommendations?.length || 1) || 0
 
-  const avgCurrentPrice = longTermData?.recommendations.reduce((sum, rec) =>
+  const avgCurrentPrice = (longTermData?.recommendations || []).reduce((sum, rec) =>
     sum + rec.current_price, 0
-  ) / (longTermData?.recommendations.length || 1) || 0
+  ) / (longTermData?.recommendations?.length || 1) || 0
 
   const avgUpside = calculateUpside(avgCurrentPrice, avgTargetPrice)
 
@@ -170,37 +176,37 @@ export default function LongTermAnalysisPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
             title="Portfolio Recommendations"
-            value={longTermData?.recommendations.length || 0}
-            icon={ChartBarIcon}
+            value={longTermData?.recommendations?.length || 0}
+            icon={<ChartBarIcon className="w-5 h-5" />}
             loading={loading}
-            trend="neutral"
-            formatType="number"
+            
+            
           />
           <MetricCard
             title="Average Upside"
             value={avgUpside}
-            icon={TrendingUpIcon}
+            icon={<ArrowTrendingUpIcon className="w-5 h-5" />}
             loading={loading}
-            trend="positive"
-            formatType="percentage"
-            suffix="%"
+            
+            
+            
           />
           <MetricCard
             title="Market Sentiment"
             value={longTermData?.market_outlook.overall_sentiment || 'Unknown'}
-            icon={SparklesIcon}
+            icon={<SparklesIcon className="w-5 h-5" />}
             loading={loading}
-            trend="neutral"
-            formatType="text"
+            
+            
           />
           <MetricCard
             title="ESG Average"
-            value={longTermData?.recommendations.reduce((sum, rec) => sum + rec.esg_score, 0) / (longTermData?.recommendations.length || 1) || 0}
-            icon={ShieldCheckIcon}
+            value={(longTermData?.recommendations || []).reduce((sum, rec) => sum + rec.esg_score, 0) / (longTermData?.recommendations?.length || 1) || 0}
+            icon={<ShieldCheckIcon className="w-5 h-5" />}
             loading={loading}
-            trend="positive"
-            formatType="number"
-            suffix="/10"
+            
+            
+            
           />
         </div>
 
@@ -328,7 +334,7 @@ export default function LongTermAnalysisPage() {
                 {/* Catalysts */}
                 <div className="mb-4">
                   <h4 className="text-sm font-medium text-trading-profit mb-2 flex items-center">
-                    <TrendingUpIcon className="w-4 h-4 mr-1" />
+                    <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                     Key Catalysts
                   </h4>
                   <div className="space-y-1">

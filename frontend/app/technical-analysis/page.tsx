@@ -7,7 +7,7 @@ import MetricCard from '@/components/MetricCard'
 import { api } from '@/lib/api'
 import {
   PresentationChartLineIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   ClockIcon,
   ChartBarIcon,
@@ -59,11 +59,17 @@ export default function TechnicalAnalysisPage() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('AAPL')
 
   useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const loadTechnicalData = async () => {
       setLoading(true)
       try {
-        const response = await api.get('/technical-analysis')
-        setTechnicalData(response.data)
+        const response = await fetch(`${API_URL}/api/technical-analysis`)
+        if (response.ok) {
+          const data = await response.json();
+          setTechnicalData(data);
+        } else {
+          throw new Error('API not available');
+        }
       } catch (error) {
         console.error('Failed to load technical analysis data:', error)
         // Mock data fallback
@@ -176,34 +182,34 @@ export default function TechnicalAnalysisPage() {
           <MetricCard
             title="Bullish Symbols"
             value={technicalData?.summary.bullish_symbols || 0}
-            icon={TrendingUpIcon}
+            icon={<ArrowTrendingUpIcon className="w-5 h-5" />}
             loading={loading}
-            trend="positive"
-            formatType="number"
+            
+            
           />
           <MetricCard
             title="Bearish Symbols"
             value={technicalData?.summary.bearish_symbols || 0}
-            icon={ArrowTrendingDownIcon}
+            icon={<ArrowTrendingDownIcon className="w-5 h-5" />}
             loading={loading}
-            trend="negative"
-            formatType="number"
+            
+            
           />
           <MetricCard
             title="Neutral Symbols"
             value={technicalData?.summary.neutral_symbols || 0}
-            icon={EyeIcon}
+            icon={<EyeIcon className="w-5 h-5" />}
             loading={loading}
-            trend="neutral"
-            formatType="number"
+            
+            
           />
           <MetricCard
             title="High Volume"
             value={technicalData?.summary.high_volume_symbols.length || 0}
-            icon={ChartBarIcon}
+            icon={<ChartBarIcon className="w-5 h-5" />}
             loading={loading}
-            trend="neutral"
-            formatType="number"
+            
+            
           />
         </div>
 
@@ -315,7 +321,7 @@ export default function TechnicalAnalysisPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h4 className="text-sm font-medium text-trading-profit mb-3 flex items-center">
-                  <TrendingUpIcon className="w-4 h-4 mr-1" />
+                  <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                   Support Levels
                 </h4>
                 <div className="space-y-2">

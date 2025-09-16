@@ -15,7 +15,7 @@ import {
   SparklesIcon,
   ChevronDownIcon,
   BuildingLibraryIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   ClockIcon,
   PresentationChartLineIcon,
 } from '@heroicons/react/24/outline'
@@ -77,7 +77,7 @@ const advancedMenuItems = [
     id: 'emerging-stocks',
     name: 'Emerging Stocks',
     href: '/emerging-stocks',
-    icon: TrendingUpIcon,
+    icon: ArrowTrendingUpIcon,
     description: 'AI Growth Stock Detection',
   },
   {

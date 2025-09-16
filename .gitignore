@@ -144,3 +144,6 @@ frontend/out/
 
 #Firebase
 .firebase/
+
+# Ignore reserved Windows device name
+frontend/nul

@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 from aiohttp import web
 import threading
-from api.dashboard_server import run_dashboard_server
+from run_dashboard_server import run_dashboard_server
 from api.server import setup_server
 
 # Add project root to path
@@ -28,7 +28,7 @@ from analysis.emerging_detector import EmergingStockDetector
 from analysis.long_term_analyzer import LongTermAnalyzer
 from analysis.social_media_v2 import SocialMediaAnalyzerV2
 from analysis.congress_trading import CongressTradingAnalyzer
-from dashboard.recommendations_dashboard import RecommendationsDashboard
+from analysis.recommendations_generator import RecommendationsDashboard
 
 # Import Knowledge Graph components
 try:

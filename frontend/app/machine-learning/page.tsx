@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Layout from '@/components/Layout/Layout'
 import MetricCard from '@/components/MetricCard'
+import type { CacheStats, BatchResults } from '@/types'
 import {
   CpuChipIcon,
   ChartBarIcon,
@@ -65,8 +66,8 @@ export default function MachineLearningPage() {
   const [loading, setLoading] = useState(true)
   const [selectedModel, setSelectedModel] = useState('ensemble')
   const [mlData, setMlData] = useState(null)
-  const [cacheStats, setCacheStats] = useState(null)
-  const [batchResults, setBatchResults] = useState(null)
+  const [cacheStats, setCacheStats] = useState<CacheStats | null>(null)
+  const [batchResults, setBatchResults] = useState<BatchResults | null>(null)
 
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -432,7 +433,7 @@ export default function MachineLearningPage() {
                 {/* Cache Hit Rates */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-accent-blue">Cache Hit Rates</h4>
-                  {Object.entries(cacheStats.hit_rates || {}).map(([model, rate], index) => (
+                  {Object.entries(cacheStats?.hit_rates || {}).map(([model, rate], index) => (
                     <div key={index} className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-white">{model}</span>
@@ -455,7 +456,7 @@ export default function MachineLearningPage() {
                 {/* Cache TTL Information */}
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-accent-blue">Time-to-Live Settings</h4>
-                  {Object.entries(cacheStats.ttl_seconds || {}).map(([model, ttl], index) => (
+                  {Object.entries(cacheStats?.ttl_seconds || {}).map(([model, ttl], index) => (
                     <div key={index} className="flex items-center justify-between">
                       <span className="text-sm text-white">{model}</span>
                       <span className="text-xs px-2 py-1 bg-dark-300 text-dark-400 sharp-card">
@@ -472,23 +473,23 @@ export default function MachineLearningPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Total Cache Size</span>
                       <span className="text-xs text-dark-500">
-                        {cacheStats.memory_usage?.total_mb || 0} MB
+                        {cacheStats?.memory_usage?.total_mb || 0} MB
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Average Entry Size</span>
                       <span className="text-xs text-dark-500">
-                        {cacheStats.memory_usage?.avg_entry_kb || 0} KB
+                        {cacheStats?.memory_usage?.avg_entry_kb || 0} KB
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Cache Efficiency</span>
                       <span className={`text-xs font-medium ${
-                        (cacheStats.memory_usage?.efficiency || 0) > 0.8 ? 'text-trading-profit' :
-                        (cacheStats.memory_usage?.efficiency || 0) > 0.6 ? 'text-yellow-400' :
+                        (cacheStats?.memory_usage?.efficiency || 0) > 0.8 ? 'text-trading-profit' :
+                        (cacheStats?.memory_usage?.efficiency || 0) > 0.6 ? 'text-yellow-400' :
                         'text-trading-loss'
                       }`}>
-                        {((cacheStats.memory_usage?.efficiency || 0) * 100).toFixed(1)}%
+                        {((cacheStats?.memory_usage?.efficiency || 0) * 100).toFixed(1)}%
                       </span>
                     </div>
                   </div>
@@ -512,7 +513,7 @@ export default function MachineLearningPage() {
                 <div>
                   <h4 className="text-sm font-medium text-accent-blue mb-3">Symbol Correlation Improvements</h4>
                   <div className="space-y-2">
-                    {Object.entries(batchResults.correlation_improvements || {}).map(([pair, improvement], index) => (
+                    {Object.entries(batchResults?.correlation_improvements || {}).map(([pair, improvement], index) => (
                       <div key={index} className="flex items-center justify-between">
                         <span className="text-sm text-white font-mono">{pair}</span>
                         <span className={`text-xs px-2 py-1 sharp-card font-medium ${
@@ -532,27 +533,27 @@ export default function MachineLearningPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Total Symbols Trained</span>
                       <span className="text-xs text-dark-500">
-                        {batchResults.total_symbols || 0}
+                        {batchResults?.total_symbols || 0}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Training Duration</span>
                       <span className="text-xs text-dark-500">
-                        {batchResults.training_duration_hours || 0}h
+                        {batchResults?.training_duration_hours || 0}h
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Average Improvement</span>
                       <span className={`text-xs font-medium ${
-                        (batchResults.avg_improvement || 0) > 0 ? 'text-trading-profit' : 'text-trading-loss'
+                        (batchResults?.avg_improvement || 0) > 0 ? 'text-trading-profit' : 'text-trading-loss'
                       }`}>
-                        {(batchResults.avg_improvement || 0) > 0 ? '+' : ''}{((batchResults.avg_improvement || 0) * 100).toFixed(2)}%
+                        {(batchResults?.avg_improvement || 0) > 0 ? '+' : ''}{((batchResults?.avg_improvement || 0) * 100).toFixed(2)}%
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Cross-Validation Score</span>
                       <span className="text-xs text-trading-profit font-medium">
-                        {((batchResults.cv_score || 0) * 100).toFixed(1)}%
+                        {((batchResults?.cv_score || 0) * 100).toFixed(1)}%
                       </span>
                     </div>
                   </div>
@@ -565,19 +566,19 @@ export default function MachineLearningPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-white mb-1">
-                      {batchResults.total_features || 119}
+                      {batchResults?.total_features || 119}
                     </div>
                     <div className="text-xs text-dark-500">Engineered Features</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-trading-profit mb-1">
-                      {batchResults.feature_importance_score || 0.847}
+                      {batchResults?.feature_importance_score || 0.847}
                     </div>
                     <div className="text-xs text-dark-500">Feature Importance Score</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-accent-blue mb-1">
-                      {batchResults.dimensionality_reduction || '67%'}
+                      {batchResults?.dimensionality_reduction || '67%'}
                     </div>
                     <div className="text-xs text-dark-500">Dimensionality Reduction</div>
                   </div>

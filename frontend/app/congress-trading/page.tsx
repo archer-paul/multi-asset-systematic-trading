@@ -7,7 +7,7 @@ import MetricCard from '@/components/MetricCard'
 import { api } from '@/lib/api'
 import {
   BuildingLibraryIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   CurrencyDollarIcon,
   UserGroupIcon,
@@ -40,11 +40,17 @@ export default function CongressTradingPage() {
   const [selectedPolitician, setSelectedPolitician] = useState<string | null>(null)
 
   useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const loadCongressData = async () => {
       setLoading(true)
       try {
-        const response = await api.get('/congress-trading')
-        setCongressData(response.data)
+        const response = await fetch(`${API_URL}/api/congress-trading`)
+        if (response.ok) {
+          const data = await response.json();
+          setCongressData(data);
+        } else {
+          throw new Error('API not available');
+        }
       } catch (error) {
         console.error('Failed to load congress trading data:', error)
         // Mock data fallback
@@ -106,7 +112,7 @@ export default function CongressTradingPage() {
     ? congressData?.trades.filter(trade => trade.politician === selectedPolitician)
     : congressData?.trades
 
-  const politicians = [...new Set(congressData?.trades.map(trade => trade.politician) || [])]
+  const politicians = Array.from(new Set(congressData?.trades.map(trade => trade.politician) || []))
 
   return (
     <Layout title="Congress Trading Analysis" subtitle="US Congressional Trading Intelligence">
@@ -116,35 +122,26 @@ export default function CongressTradingPage() {
           <MetricCard
             title="Total Trades"
             value={congressData?.summary.total_trades || 0}
-            icon={ChartBarIcon}
+            icon={<ChartBarIcon className="w-5 h-5" />}
             loading={loading}
-            trend="neutral"
-            formatType="number"
           />
           <MetricCard
             title="Net Activity"
             value={congressData?.summary.net_activity || 'Unknown'}
-            icon={congressData?.summary.net_activity === 'Bullish' ? TrendingUpIcon : ArrowTrendingDownIcon}
+            icon={congressData?.summary.net_activity === 'Bullish' ? <ArrowTrendingUpIcon className="w-5 h-5" /> : <ArrowTrendingDownIcon className="w-5 h-5" />}
             loading={loading}
-            trend={congressData?.summary.net_activity === 'Bullish' ? 'positive' : 'negative'}
-            formatType="text"
           />
           <MetricCard
             title="vs Market Performance"
-            value={congressData?.summary.performance_vs_market || 0}
-            icon={CurrencyDollarIcon}
+            value={`${congressData?.summary.performance_vs_market || 0}%`}
+            icon={<CurrencyDollarIcon className="w-5 h-5" />}
             loading={loading}
-            trend="positive"
-            formatType="percentage"
-            suffix="%"
           />
           <MetricCard
             title="Active Politicians"
             value={politicians.length}
-            icon={UserGroupIcon}
+            icon={<UserGroupIcon className="w-5 h-5" />}
             loading={loading}
-            trend="neutral"
-            formatType="number"
           />
         </div>
 

@@ -76,4 +76,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
 EXPOSE 8080
 
 # Command to run the application using Gunicorn
-CMD ["gunicorn", "--workers", "1", "--threads", "10", "--worker-class", "eventlet", "-b", ":8080", "--timeout", "300", "--graceful-timeout", "300", "wsgi:app"]
+CMD ["/usr/local/bin/gunicorn", "--workers", "1", "--threads", "10", "--worker-class", "eventlet", "-b", ":8080", "--timeout", "300", "--graceful-timeout", "300", "wsgi:app"]

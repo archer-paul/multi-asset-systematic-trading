@@ -3,7 +3,7 @@
 import { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
-  ArrowTrendingUpIcon as TrendingUpIcon,
+  ArrowTrendingUpIcon,
   ArrowTrendingDownIcon as TrendingDownIcon,
   MinusIcon,
 } from '@heroicons/react/24/outline'
@@ -77,7 +77,7 @@ export default function MetricCard({
 
     switch (changeType) {
       case 'increase':
-        return <TrendingUpIcon className="w-4 h-4 text-trading-profit" />
+        return <ArrowTrendingUpIcon className="w-4 h-4 text-trading-profit" />
       case 'decrease':
         return <TrendingDownIcon className="w-4 h-4 text-trading-loss" />
       default:

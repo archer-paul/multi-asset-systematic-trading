@@ -6,6 +6,7 @@ Manages all components and orchestrates the trading process
 import logging
 import asyncio
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
@@ -25,6 +26,7 @@ from ml.ensemble import EnsemblePredictor
 from trading.strategy import TradingStrategy
 from trading.risk_manager import RiskManager
 from trading.portfolio_manager import PortfolioManager
+from trading.advanced_decision_engine import AdvancedPortfolioDecisionEngine
 from analysis.performance_analyzer import PerformanceAnalyzer
 
 class TradingBotOrchestrator:
@@ -84,7 +86,15 @@ class TradingBotOrchestrator:
         self.risk_manager = RiskManager(self.config)
         self.portfolio_manager = PortfolioManager(self.config)
         self.trading_strategy = TradingStrategy(self.config)
-        
+
+        # Advanced decision engine for sophisticated portfolio management
+        # Inject existing infrastructure for seamless integration
+        self.advanced_decision_engine = AdvancedPortfolioDecisionEngine(
+            config=self.config.get('advanced_decisions', {}),
+            db_manager=self.db_manager,  # Reuse existing database
+            ensemble_predictor=self.ensemble_predictor  # Reuse existing ML ensemble
+        )
+
         self.performance_analyzer = PerformanceAnalyzer(self.config)
         
         self.logger.info("All components initialized successfully")
@@ -183,7 +193,7 @@ class TradingBotOrchestrator:
             current_market_data = await self.data_collector.collect_current_market_data(self.config.ALL_SYMBOLS)
             
             self.logger.debug("Collecting latest news...")
-                        latest_news = await self.data_collector.collect_news_data(self.config.ALL_SYMBOLS)
+            latest_news = await self.data_collector.collect_news_data(self.config.ALL_SYMBOLS)
             
             self.logger.debug("Processing news sentiment...")
             await self._process_news_sentiment(latest_news)
@@ -208,7 +218,10 @@ class TradingBotOrchestrator:
             self.logger.debug("Updating portfolio and performance metrics...")
             portfolio_summary = await self.portfolio_manager.get_portfolio_summary()
             performance_metrics = await self.performance_analyzer.calculate_current_metrics()
-            
+
+            # Update advanced decision engine with ML ensemble feedback
+            await self.advanced_decision_engine.update_from_ml_ensemble_feedback()
+
             await self._save_cycle_results(signals, execution_results, portfolio_summary, performance_metrics)
 
             self.latest_analysis = {
@@ -310,8 +323,257 @@ class TradingBotOrchestrator:
         )
 
     async def _generate_trading_signals(self, predictions: Dict, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict) -> List[Dict]:
-        # ... (implementation unchanged)
-        pass
+        """Generate trading signals using advanced decision engine"""
+        try:
+            self.logger.info("Generating advanced trading signals...")
+
+            # Prepare comprehensive signals data for each symbol
+            all_signals_data = {}
+
+            for symbol in self.config.ALL_SYMBOLS:
+                if symbol not in market_data:
+                    continue
+
+                # Get current portfolio weight for this symbol
+                portfolio_summary = await self.portfolio_manager.get_portfolio_summary()
+                current_positions = portfolio_summary.get('positions', {})
+                current_weight = current_positions.get(symbol, {}).get('weight', 0.0)
+
+                # Aggregate all data sources for this symbol
+                symbol_data = self._prepare_symbol_data(
+                    symbol, predictions, market_data, news_data,
+                    social_data, multi_timeframe_data
+                )
+
+                all_signals_data[symbol] = symbol_data
+
+            # Get current portfolio allocation
+            current_portfolio = {}
+            for symbol, position in current_positions.items():
+                current_portfolio[symbol] = position.get('weight', 0.0)
+
+            # Generate advanced portfolio decisions
+            portfolio_decisions = await self.advanced_decision_engine.make_portfolio_decisions(
+                all_signals_data, current_portfolio, market_data
+            )
+
+            # Convert portfolio decisions to trading signals format
+            trading_signals = self._convert_decisions_to_signals(portfolio_decisions)
+
+            self.logger.info(f"Generated {len(trading_signals)} advanced trading signals")
+            return trading_signals
+
+        except Exception as e:
+            self.logger.error(f"Advanced signal generation failed: {e}", exc_info=True)
+            # Fallback to basic signal generation
+            return await self._generate_basic_signals(predictions, market_data, news_data, social_data, multi_timeframe_data)
+
+    def _prepare_symbol_data(self, symbol: str, predictions: Dict, market_data: Dict,
+                            news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict) -> Dict[str, Any]:
+        """Prepare comprehensive data for a single symbol"""
+        try:
+            symbol_market_data = market_data.get(symbol, {})
+            symbol_predictions = predictions.get(symbol, {})
+            symbol_social = social_data.get(symbol, {})
+            symbol_multi_timeframe = multi_timeframe_data.get(symbol, {})
+
+            # Filter news for this symbol
+            symbol_news = [
+                item for item in news_data
+                if symbol in item.get('companies_mentioned', [])
+            ]
+
+            # Extract technical analysis data
+            price_history = symbol_market_data.get('price_history', pd.DataFrame())
+            current_price = symbol_market_data.get('price', 0)
+
+            technical_analysis = {}
+            if not price_history.empty and len(price_history) > 20:
+                # RSI
+                delta = price_history['Close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs)).iloc[-1]
+
+                # MACD
+                ema_12 = price_history['Close'].ewm(span=12).mean()
+                ema_26 = price_history['Close'].ewm(span=26).mean()
+                macd = ema_12 - ema_26
+                signal_line = macd.ewm(span=9).mean()
+                macd_signal = 1 if macd.iloc[-1] > signal_line.iloc[-1] else -1
+
+                # Volume ratio
+                avg_volume = price_history['Volume'].rolling(window=20).mean().iloc[-1]
+                current_volume = symbol_market_data.get('volume', avg_volume)
+                volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1.0
+
+                # Support/Resistance
+                resistance = price_history['High'].rolling(window=20).max().iloc[-1]
+                support = price_history['Low'].rolling(window=20).min().iloc[-1]
+
+                technical_analysis = {
+                    'rsi': rsi,
+                    'macd_signal': macd_signal,
+                    'volume_ratio': volume_ratio,
+                    'resistance': resistance,
+                    'support': support
+                }
+
+            # Extract sentiment analysis
+            sentiment_analysis = {}
+            if symbol_news:
+                news_sentiments = [
+                    item.get('sentiment_data', {}).get('sentiment_score', 0)
+                    for item in symbol_news if 'sentiment_data' in item
+                ]
+                if news_sentiments:
+                    sentiment_analysis['news_sentiment'] = np.mean(news_sentiments)
+                    sentiment_analysis['news_confidence'] = len(news_sentiments) / 10.0  # More news = higher confidence
+
+            if symbol_social:
+                sentiment_analysis['social_sentiment'] = symbol_social.get('sentiment_score', 0)
+                sentiment_analysis['social_confidence'] = symbol_social.get('confidence', 0.3)
+
+            # Extract fundamental analysis (basic)
+            fundamental_analysis = {
+                'pe_ratio': symbol_market_data.get('pe_ratio', 20),
+                'pb_ratio': symbol_market_data.get('pb_ratio', 2),
+                'revenue_growth': symbol_market_data.get('revenue_growth', 0.05),
+                'earnings_growth': symbol_market_data.get('earnings_growth', 0.08)
+            }
+
+            # Extract momentum analysis
+            momentum_analysis = {}
+            if not price_history.empty and len(price_history) > 20:
+                momentum_1d = (current_price - price_history['Close'].iloc[-2]) / price_history['Close'].iloc[-2] if len(price_history) > 1 else 0
+                momentum_5d = (current_price - price_history['Close'].iloc[-6]) / price_history['Close'].iloc[-6] if len(price_history) > 5 else 0
+                momentum_20d = (current_price - price_history['Close'].iloc[-21]) / price_history['Close'].iloc[-21] if len(price_history) > 20 else 0
+
+                momentum_analysis = {
+                    'momentum_1d': momentum_1d,
+                    'momentum_5d': momentum_5d,
+                    'momentum_20d': momentum_20d,
+                    'volume_momentum': volume_ratio - 1.0
+                }
+
+            # Volume analysis
+            volume_analysis = {
+                'volume_ratio': technical_analysis.get('volume_ratio', 1.0),
+                'volume_trend': 0.0  # Can be enhanced with volume trend calculation
+            }
+
+            # Risk analysis
+            volatility = 0.02  # Default
+            if not price_history.empty and len(price_history) > 20:
+                returns = price_history['Close'].pct_change()
+                volatility = returns.rolling(window=20).std().iloc[-1] * np.sqrt(252)
+
+            risk_analysis = {
+                'volatility': volatility,
+                'beta': 1.0,  # Can be calculated vs market index
+                'max_drawdown': 0.1,  # Historical max drawdown
+                'liquidity_score': 0.8  # Estimated liquidity score
+            }
+
+            # Correlation analysis (simplified)
+            correlation_analysis = {
+                'portfolio_correlation': 0.3,  # Average correlation with existing portfolio
+                'sector_concentration': 0.2   # Sector concentration risk
+            }
+
+            return {
+                'symbol': symbol,
+                'current_price': current_price,
+                'technical_analysis': technical_analysis,
+                'ml_predictions': symbol_predictions,
+                'sentiment_analysis': sentiment_analysis,
+                'fundamental_analysis': fundamental_analysis,
+                'momentum_analysis': momentum_analysis,
+                'volume_analysis': volume_analysis,
+                'risk_analysis': risk_analysis,
+                'correlation_analysis': correlation_analysis,
+                'sector_analysis': {
+                    'strength': symbol_multi_timeframe.get('sector_strength', 0.0),
+                    'sector': symbol_market_data.get('sector', 'Unknown')
+                },
+                'price_history': price_history
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error preparing data for {symbol}: {e}")
+            return {'symbol': symbol, 'current_price': 0}
+
+    def _convert_decisions_to_signals(self, portfolio_decisions: Dict) -> List[Dict]:
+        """Convert portfolio decisions to traditional trading signals format"""
+        signals = []
+
+        for symbol, decision in portfolio_decisions.items():
+            if decision.action == 'hold':
+                continue
+
+            # Map decision action to signal type
+            signal_type_map = {
+                'buy': 'buy',
+                'sell': 'sell',
+                'rebalance': 'rebalance'
+            }
+
+            signal = {
+                'symbol': symbol,
+                'signal_type': signal_type_map.get(decision.action, 'hold'),
+                'confidence': decision.conviction,
+                'price': decision.metadata.get('signal_metrics', {}).get('current_price', 0) if hasattr(decision.metadata.get('signal_metrics', {}), 'current_price') else 0,
+                'target_weight': decision.target_weight,
+                'current_weight': decision.current_weight,
+                'expected_return': decision.expected_return,
+                'expected_risk': decision.expected_risk,
+                'reasoning': decision.reasoning,
+                'strategy': 'AdvancedDecisionEngine',
+                'metadata': {
+                    'conviction': decision.conviction,
+                    'market_regime': decision.metadata.get('market_regime'),
+                    'weight_change': decision.target_weight - decision.current_weight,
+                    'risk_metrics': decision.risk_metrics
+                }
+            }
+
+            signals.append(signal)
+
+        return signals
+
+    async def _generate_basic_signals(self, predictions: Dict, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict) -> List[Dict]:
+        """Fallback basic signal generation method"""
+        try:
+            signals = []
+
+            for symbol in self.config.ALL_SYMBOLS[:10]:  # Limit for safety
+                if symbol not in market_data:
+                    continue
+
+                # Basic signal logic
+                prediction = predictions.get(symbol, {})
+                ml_signal = prediction.get('meta_prediction', 0)
+                ml_confidence = prediction.get('meta_confidence', 0.5)
+
+                if ml_confidence > 0.3 and abs(ml_signal) > 0.2:
+                    signal_type = 'buy' if ml_signal > 0 else 'sell'
+
+                    signals.append({
+                        'symbol': symbol,
+                        'signal_type': signal_type,
+                        'confidence': ml_confidence,
+                        'price': market_data[symbol].get('price', 0),
+                        'reasoning': f"ML prediction: {ml_signal:.2f}",
+                        'strategy': 'BasicML',
+                        'metadata': {'ml_prediction': ml_signal}
+                    })
+
+            return signals
+
+        except Exception as e:
+            self.logger.error(f"Basic signal generation failed: {e}")
+            return []
 
     def _aggregate_sentiment_data(self, news_items: List[Dict]) -> Dict:
         # ... (implementation unchanged)
@@ -326,8 +588,106 @@ class TradingBotOrchestrator:
         pass
 
     async def _save_cycle_results(self, signals: List[Dict], execution_results: List[Dict], portfolio_summary: Dict, performance_metrics: Dict):
-        # ... (implementation unchanged)
-        pass
+        """Save cycle results to database and update performance tracking"""
+        try:
+            # Store in database for historical tracking
+            if self.db_manager and self.db_manager.connection:
+                cursor = self.db_manager.connection.cursor()
+
+                # Save bot performance metrics
+                cursor.execute("""
+                    INSERT INTO bot_performance (cycle_id, total_return, trades_count, success_rate, max_drawdown, start_time, end_time, metadata)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    f"cycle_{self.cycle_count}",
+                    performance_metrics.get('total_return_pct', 0),
+                    len(execution_results),
+                    performance_metrics.get('win_rate_pct', 0) / 100,
+                    performance_metrics.get('max_drawdown_pct', 0) / 100,
+                    self.last_cycle_time,
+                    datetime.now(),
+                    {
+                        'signal_count': len(signals),
+                        'advanced_decisions': len(self.advanced_decision_engine.last_decisions),
+                        'market_regime': getattr(self.advanced_decision_engine.regime_detector, 'last_detected_regime', 'unknown'),
+                        'ensemble_performance': getattr(self.ensemble_predictor, 'recent_performance', {}),
+                    }
+                ))
+
+                cursor.close()
+
+            # Update ML Ensemble with portfolio performance feedback
+            await self._update_ml_ensemble_with_portfolio_feedback(portfolio_summary, performance_metrics)
+
+            # Record decision performance for adaptive learning
+            await self._record_decision_performance_feedback(execution_results, portfolio_summary)
+
+        except Exception as e:
+            self.logger.error(f"Error saving cycle results: {e}")
+
+    async def _update_ml_ensemble_with_portfolio_feedback(self, portfolio_summary: Dict, performance_metrics: Dict):
+        """Update ML ensemble with actual portfolio performance"""
+        try:
+            if not self.ensemble_predictor or not hasattr(self.ensemble_predictor, 'bayesian_averaging'):
+                return
+
+            # Get recent signals that led to current performance
+            recent_decisions = self.advanced_decision_engine.last_decisions
+
+            for symbol, decision in recent_decisions.items():
+                # Get actual return from portfolio
+                position = portfolio_summary.get('positions', {}).get(symbol, {})
+                if position:
+                    actual_return = position.get('unrealized_pnl_pct', 0)
+
+                    # Extract ML predictions that contributed to this decision
+                    signal_metrics = decision.metadata.get('signal_metrics')
+                    if signal_metrics:
+                        ml_prediction = getattr(signal_metrics, 'ml_score', 0)
+
+                        # Update ensemble with actual vs predicted
+                        individual_predictions = {
+                            'traditional_ml': getattr(signal_metrics, 'traditional_ml_prediction', ml_prediction * 0.6),
+                            'transformer_ml': getattr(signal_metrics, 'transformer_ml_prediction', ml_prediction * 0.4),
+                            'ensemble': ml_prediction
+                        }
+
+                        # This feeds back into the BayesianModelAveraging in ml/ensemble.py
+                        self.ensemble_predictor.bayesian_averaging.update_model_performance(
+                            individual_predictions, actual_return
+                        )
+
+            self.logger.debug(f"Updated ML ensemble with feedback from {len(recent_decisions)} decisions")
+
+        except Exception as e:
+            self.logger.error(f"Error updating ML ensemble with portfolio feedback: {e}")
+
+    async def _record_decision_performance_feedback(self, execution_results: List[Dict], portfolio_summary: Dict):
+        """Record decision performance for advanced decision engine learning"""
+        try:
+            recent_decisions = self.advanced_decision_engine.last_decisions
+
+            for symbol, decision in recent_decisions.items():
+                # Find corresponding execution result
+                execution_result = next((er for er in execution_results if er.get('symbol') == symbol), None)
+
+                if execution_result and execution_result.get('status') == 'success':
+                    # Calculate actual return based on portfolio change
+                    position = portfolio_summary.get('positions', {}).get(symbol, {})
+                    actual_return = position.get('unrealized_pnl_pct', 0) if position else 0
+
+                    # Record performance for adaptive learning
+                    await self.advanced_decision_engine.record_decision_performance(
+                        symbol=symbol,
+                        decision=decision,
+                        actual_return=actual_return,
+                        time_horizon=5  # 5 days default
+                    )
+
+            self.logger.debug(f"Recorded performance feedback for {len(recent_decisions)} decisions")
+
+        except Exception as e:
+            self.logger.error(f"Error recording decision performance feedback: {e}")
 
     async def get_detailed_performance_report(self) -> Dict[str, Any]:
         # ... (implementation unchanged)

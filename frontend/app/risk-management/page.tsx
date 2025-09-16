@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Layout from '@/components/Layout/Layout'
 import MetricCard from '@/components/MetricCard'
+import type { StressTestResults, MonteCarloResults } from '@/types'
 import {
   ShieldCheckIcon,
   ExclamationTriangleIcon,
@@ -90,8 +91,8 @@ const stressTestScenarios = [
 export default function RiskManagementPage() {
   const [loading, setLoading] = useState(true)
   const [selectedTimeframe, setSelectedTimeframe] = useState('1D')
-  const [stressTestResults, setStressTestResults] = useState(null)
-  const [monteCarloResults, setMonteCarloResults] = useState(null)
+  const [stressTestResults, setStressTestResults] = useState<StressTestResults | null>(null)
+  const [monteCarloResults, setMonteCarloResults] = useState<MonteCarloResults | null>(null)
 
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -449,7 +450,7 @@ export default function RiskManagementPage() {
                 <div>
                   <h4 className="text-sm font-medium text-accent-blue mb-3">Historical Crisis Scenarios</h4>
                   <div className="space-y-3">
-                    {Object.entries(stressTestResults.historical_scenarios || {}).map(([scenario, impact], index) => (
+                    {Object.entries(stressTestResults?.historical_scenarios || {}).map(([scenario, impact], index) => (
                       <div key={index} className="flex items-center justify-between p-3 bg-dark-300/50 sharp-card">
                         <div>
                           <div className="text-sm text-white font-medium">{scenario}</div>
@@ -470,7 +471,7 @@ export default function RiskManagementPage() {
                 <div>
                   <h4 className="text-sm font-medium text-accent-blue mb-3">Custom Scenario Analysis</h4>
                   <div className="space-y-3">
-                    {Object.entries(stressTestResults.custom_scenarios || {}).map(([scenario, data], index) => (
+                    {Object.entries(stressTestResults?.custom_scenarios || {}).map(([scenario, data], index) => (
                       <div key={index} className="p-3 bg-dark-300/50 sharp-card">
                         <div className="flex items-center justify-between mb-2">
                           <div className="text-sm text-white font-medium">{scenario}</div>
@@ -496,25 +497,25 @@ export default function RiskManagementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-trading-loss mb-1">
-                      {stressTestResults.summary?.worst_case_scenario || '-18.7%'}
+                      {stressTestResults?.summary?.worst_case_scenario || '-18.7%'}
                     </div>
                     <div className="text-xs text-dark-500">Worst Case Impact</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-yellow-400 mb-1">
-                      {stressTestResults.summary?.average_impact || '-7.2%'}
+                      {stressTestResults?.summary?.average_impact || '-7.2%'}
                     </div>
                     <div className="text-xs text-dark-500">Average Impact</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-accent-blue mb-1">
-                      {stressTestResults.summary?.recovery_time || '8.3'}
+                      {stressTestResults?.summary?.recovery_time || '8.3'}
                     </div>
                     <div className="text-xs text-dark-500">Avg Recovery (days)</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-white mb-1">
-                      {stressTestResults.summary?.scenarios_tested || '47'}
+                      {stressTestResults?.summary?.scenarios_tested || '47'}
                     </div>
                     <div className="text-xs text-dark-500">Scenarios Tested</div>
                   </div>
@@ -541,25 +542,25 @@ export default function RiskManagementPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Number of Simulations</span>
                       <span className="text-xs text-dark-500 font-mono">
-                        {monteCarloResults.parameters?.num_simulations || '10,000'}
+                        {monteCarloResults?.parameters?.num_simulations || '10,000'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Time Horizon</span>
                       <span className="text-xs text-dark-500 font-mono">
-                        {monteCarloResults.parameters?.time_horizon || '252 days'}
+                        {monteCarloResults?.parameters?.time_horizon || '252 days'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Confidence Level</span>
                       <span className="text-xs text-dark-500 font-mono">
-                        {monteCarloResults.parameters?.confidence_level || '95%'}
+                        {monteCarloResults?.parameters?.confidence_level || '95%'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Correlation Model</span>
                       <span className="text-xs text-dark-500 font-mono">
-                        {monteCarloResults.parameters?.correlation_model || 'Dynamic'}
+                        {monteCarloResults?.parameters?.correlation_model || 'Dynamic'}
                       </span>
                     </div>
                   </div>
@@ -572,25 +573,25 @@ export default function RiskManagementPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Expected Return</span>
                       <span className="text-xs text-trading-profit font-mono">
-                        +{Number(monteCarloResults.distribution?.expected_return || 0.087) * 100}%
+                        +{((monteCarloResults?.distribution?.expected_return || 0.087) * 100).toFixed(1)}%
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Standard Deviation</span>
                       <span className="text-xs text-yellow-400 font-mono">
-                        {Number(monteCarloResults.distribution?.std_deviation || 0.156) * 100}%
+                        {((monteCarloResults?.distribution?.std_deviation || 0.156) * 100).toFixed(1)}%
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Skewness</span>
                       <span className="text-xs text-dark-500 font-mono">
-                        {Number(monteCarloResults.distribution?.skewness || -0.23).toFixed(2)}
+                        {(monteCarloResults?.distribution?.skewness || -0.23).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white">Kurtosis</span>
                       <span className="text-xs text-dark-500 font-mono">
-                        {Number(monteCarloResults.distribution?.kurtosis || 3.45).toFixed(2)}
+                        {(monteCarloResults?.distribution?.kurtosis || 3.45).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -600,7 +601,7 @@ export default function RiskManagementPage() {
                 <div>
                   <h4 className="text-sm font-medium text-accent-blue mb-3">Risk Percentiles</h4>
                   <div className="space-y-2">
-                    {Object.entries(monteCarloResults.percentiles || {
+                    {Object.entries(monteCarloResults?.percentiles || {
                       '5th': -0.087,
                       '10th': -0.064,
                       '25th': -0.032,
@@ -637,25 +638,25 @@ export default function RiskManagementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <div className="text-lg font-bold text-trading-loss mb-1">
-                      {Number(monteCarloResults.tail_risk?.var_95 || -0.034) * 100}%
+                      {((monteCarloResults?.tail_risk?.var_95 || -0.034) * 100).toFixed(1)}%
                     </div>
                     <div className="text-xs text-dark-500">VaR (95%)</div>
                   </div>
                   <div className="text-center">
                     <div className="text-lg font-bold text-trading-loss mb-1">
-                      {Number(monteCarloResults.tail_risk?.var_99 || -0.052) * 100}%
+                      {((monteCarloResults?.tail_risk?.var_99 || -0.052) * 100).toFixed(1)}%
                     </div>
                     <div className="text-xs text-dark-500">VaR (99%)</div>
                   </div>
                   <div className="text-center">
                     <div className="text-lg font-bold text-trading-loss mb-1">
-                      {Number(monteCarloResults.tail_risk?.expected_shortfall || -0.067) * 100}%
+                      {((monteCarloResults?.tail_risk?.expected_shortfall || -0.067) * 100).toFixed(1)}%
                     </div>
                     <div className="text-xs text-dark-500">Expected Shortfall</div>
                   </div>
                   <div className="text-center">
                     <div className="text-lg font-bold text-yellow-400 mb-1">
-                      {Number(monteCarloResults.tail_risk?.max_drawdown || -0.089) * 100}%
+                      {((monteCarloResults?.tail_risk?.max_drawdown || -0.089) * 100).toFixed(1)}%
                     </div>
                     <div className="text-xs text-dark-500">Max Drawdown</div>
                   </div>

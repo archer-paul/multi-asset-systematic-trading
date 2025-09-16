@@ -9,7 +9,7 @@ import useSocket from '../../hooks/useSocket' // Adjusted path
 import toast, { Toaster } from 'react-hot-toast'
 import {
   BriefcaseIcon,
-  ArrowTrendingUpIcon as TrendingUpIcon,
+  ArrowTrendingUpIcon,
   ArrowTrendingDownIcon as TrendingDownIcon,
   CurrencyDollarIcon,
   ChartPieIcon,
@@ -64,6 +64,8 @@ const CandlestickChart = ({ data }: { data: any }) => {
 export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [portfolioData, setPortfolioData] = useState<{ holdings: any[], sectorAllocation: any[], performanceHistory: any[] }>({ holdings: [], sectorAllocation: [], performanceHistory: [] });
+  const [advancedDecisions, setAdvancedDecisions] = useState<any>(null);
+  const [portfolioAnalysis, setPortfolioAnalysis] = useState<any>(null);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const { socket, isConnected } = useSocket(API_URL);
 
@@ -72,10 +74,35 @@ export default function PortfolioPage() {
     const loadData = async () => {
       setLoading(true);
       try {
+        // Load basic portfolio data
         const response = await fetch(`${API_URL}/api/portfolio`);
         if (!response.ok) throw new Error('Failed to fetch portfolio data');
         const data = await response.json();
         setPortfolioData(data);
+
+        // Try to load advanced decisions
+        try {
+          const advancedResponse = await fetch(`${API_URL}/api/advanced/portfolio/decisions`);
+          if (advancedResponse.ok) {
+            const advancedData = await advancedResponse.json();
+            setAdvancedDecisions(advancedData);
+            toast.success('Advanced portfolio data loaded!');
+          }
+        } catch (advError) {
+          console.warn('Advanced portfolio API not available:', advError);
+        }
+
+        // Try to load portfolio analysis
+        try {
+          const analysisResponse = await fetch(`${API_URL}/api/advanced/portfolio/analysis`);
+          if (analysisResponse.ok) {
+            const analysisData = await analysisResponse.json();
+            setPortfolioAnalysis(analysisData);
+          }
+        } catch (anaError) {
+          console.warn('Portfolio analysis API not available:', anaError);
+        }
+
         toast.success('Portfolio data loaded!');
       } catch (error) {
         console.warn('Portfolio API not available, using mock data:', error);
@@ -155,7 +182,7 @@ export default function PortfolioPage() {
         {/* Overview Metrics */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard title="Total Value" value={totalValue} formatValue={(v) => `$${Number(v).toLocaleString()}`} loading={loading} icon={<CurrencyDollarIcon className="w-5 h-5" />} />
-            <MetricCard title="Total P&L" value={totalPnL} change={totalPnLPercent} changeType={totalPnL > 0 ? 'increase' : 'decrease'} formatValue={(v) => `$${Number(v).toLocaleString()}`} loading={loading} icon={totalPnL > 0 ? <TrendingUpIcon className="w-5 h-5" /> : <TrendingDownIcon className="w-5 h-5" />} />
+            <MetricCard title="Total P&L" value={totalPnL} change={totalPnLPercent} changeType={totalPnL > 0 ? 'increase' : 'decrease'} formatValue={(v) => `$${Number(v).toLocaleString()}`} loading={loading} icon={totalPnL > 0 ? <ArrowTrendingUpIcon className="w-5 h-5" /> : <TrendingDownIcon className="w-5 h-5" />} />
             <MetricCard title="Positions" value={portfolioData.holdings.length} loading={loading} icon={<ChartPieIcon className="w-5 h-5" />} />
             <MetricCard title="Socket Status" value={isConnected ? 'Connected' : 'Disconnected'} color={isConnected ? 'green' : 'red'} loading={loading} />
         </motion.div>
@@ -165,6 +192,106 @@ export default function PortfolioPage() {
             <h3 className="text-lg font-semibold text-white mb-4">Performance History</h3>
             <CandlestickChart data={portfolioData.performanceHistory} />
         </motion.div>
+
+        {/* Advanced Portfolio Decisions */}
+        {advancedDecisions && advancedDecisions.dashboard_data && (
+          <motion.div variants={itemVariants} className="bg-dark-200 sharp-card p-6 border border-dark-300">
+            <h3 className="text-lg font-semibold text-white mb-4">🧠 Advanced Portfolio Decisions</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Decision Summary */}
+              <div>
+                <h4 className="text-sm font-medium text-dark-500 mb-3">Decision Summary</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-white">Total Decisions:</span>
+                    <span className="text-white">{advancedDecisions.decision_summary.total_decisions || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white">Buy Signals:</span>
+                    <span className="text-trading-profit">{advancedDecisions.decision_summary.buy_decisions || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white">Sell Signals:</span>
+                    <span className="text-trading-loss">{advancedDecisions.decision_summary.sell_decisions || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white">Avg Conviction:</span>
+                    <span className="text-white">{(advancedDecisions.decision_summary.avg_conviction * 100).toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Risk Analysis */}
+              {advancedDecisions.dashboard_data.risk_analysis && (
+                <div>
+                  <h4 className="text-sm font-medium text-dark-500 mb-3">Risk Analysis</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-white">Total Positions:</span>
+                      <span className="text-white">{advancedDecisions.dashboard_data.risk_analysis.total_positions || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white">High Conviction:</span>
+                      <span className="text-white">{advancedDecisions.dashboard_data.risk_analysis.high_conviction_count || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Top Recommendations */}
+            {advancedDecisions.dashboard_data.portfolio_recommendations && advancedDecisions.dashboard_data.portfolio_recommendations.length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-sm font-medium text-dark-500 mb-3">Top Recommendations</h4>
+                <div className="space-y-3">
+                  {advancedDecisions.dashboard_data.portfolio_recommendations.slice(0, 5).map((rec: any, index: number) => (
+                    <div key={`${rec.symbol}-${index}`} className="flex items-center justify-between p-3 bg-dark-300/30 rounded">
+                      <div className="flex items-center space-x-3">
+                        <span className="font-mono text-white font-medium">{rec.symbol}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          rec.action === 'BUY' ? 'bg-green-500/20 text-green-400' :
+                          rec.action === 'SELL' ? 'bg-red-500/20 text-red-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {rec.action}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-white text-sm">{rec.target_weight}</div>
+                        <div className="text-dark-500 text-xs">{rec.conviction} conviction</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Portfolio Analysis */}
+        {portfolioAnalysis && portfolioAnalysis.analysis && (
+          <motion.div variants={itemVariants} className="bg-dark-200 sharp-card p-6 border border-dark-300">
+            <h3 className="text-lg font-semibold text-white mb-4">📊 Advanced Portfolio Analysis</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{portfolioAnalysis.analysis.market_regime || 'Unknown'}</div>
+                <div className="text-sm text-dark-500">Market Regime</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{(portfolioAnalysis.analysis.risk_analysis?.sharpe_ratio || 0).toFixed(2)}</div>
+                <div className="text-sm text-dark-500">Sharpe Ratio</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{(portfolioAnalysis.analysis.risk_analysis?.portfolio_volatility || 0).toFixed(1)}%</div>
+                <div className="text-sm text-dark-500">Volatility</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{(portfolioAnalysis.analysis.risk_analysis?.win_rate_pct || 0).toFixed(1)}%</div>
+                <div className="text-sm text-dark-500">Win Rate</div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Holdings Table */}
         <motion.div variants={itemVariants}>

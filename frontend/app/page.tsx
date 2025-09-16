@@ -6,8 +6,9 @@ import Layout from '@/components/Layout/Layout'
 import MetricCard from '@/components/MetricCard'
 import PerformanceChart from '@/components/Charts/PerformanceChart'
 import { api } from '@/lib/api'
+import type { CacheStats, SystemHealth } from '@/types'
 import {
-  ArrowTrendingUpIcon as TrendingUpIcon,
+  ArrowTrendingUpIcon,
   CurrencyDollarIcon,
   ChartBarIcon,
   ShieldCheckIcon,
@@ -26,8 +27,8 @@ export default function DashboardPage() {
     activePositions: 0,
   })
   const [loading, setLoading] = useState(true)
-  const [cacheMetrics, setCacheMetrics] = useState(null)
-  const [systemHealth, setSystemHealth] = useState(null)
+  const [cacheMetrics, setCacheMetrics] = useState<CacheStats | null>(null)
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null)
 
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -121,7 +122,7 @@ export default function DashboardPage() {
               value={metrics.totalReturn}
               change={Math.abs(metrics.totalReturn) > 10 ? 15.2 : -2.1}
               changeType={metrics.totalReturn > 0 ? 'increase' : 'decrease'}
-              icon={<TrendingUpIcon className="w-5 h-5" />}
+              icon={<ArrowTrendingUpIcon className="w-5 h-5" />}
               formatValue={(val) => `${Number(val).toFixed(2)}%`}
               loading={loading}
               color="green"
@@ -165,7 +166,7 @@ export default function DashboardPage() {
               value={metrics.winRate}
               change={3.2}
               changeType="increase"
-              icon={<TrendingUpIcon className="w-5 h-5" />}
+              icon={<ArrowTrendingUpIcon className="w-5 h-5" />}
               formatValue={(val) => `${Number(val).toFixed(1)}%`}
               loading={loading}
               color="purple"
@@ -239,7 +240,7 @@ export default function DashboardPage() {
                   { component: 'ML Models', status: 'online', uptime: '98.7%' },
                   { component: 'Risk Manager', status: 'online', uptime: '100%' },
                   { component: 'Data Feed', status: 'online', uptime: '97.2%' },
-                ]).map((item, index) => (
+                ]).map((item: any, index: number) => (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -285,14 +286,14 @@ export default function DashboardPage() {
                 {/* Overall Cache Hit Rate */}
                 <div className="text-center">
                   <div className="text-3xl font-bold text-trading-profit mb-2">
-                    {((cacheMetrics.overall_hit_rate || 0.847) * 100).toFixed(1)}%
+                    {((cacheMetrics?.overall_hit_rate || 0.847) * 100).toFixed(1)}%
                   </div>
                   <div className="text-sm text-dark-500 mb-3">Overall Hit Rate</div>
                   <div className="w-full bg-dark-300 h-2 sharp-card overflow-hidden">
                     <motion.div
                       className="h-full bg-gradient-to-r from-trading-profit to-accent-blue"
                       initial={{ width: 0 }}
-                      animate={{ width: `${(cacheMetrics.overall_hit_rate || 0.847) * 100}%` }}
+                      animate={{ width: `${(cacheMetrics?.overall_hit_rate || 0.847) * 100}%` }}
                       transition={{ duration: 1, delay: 0.2 }}
                     />
                   </div>
@@ -301,33 +302,33 @@ export default function DashboardPage() {
                 {/* Memory Usage */}
                 <div className="text-center">
                   <div className="text-3xl font-bold text-accent-blue mb-2">
-                    {cacheMetrics.memory_usage?.total_mb || 1247}
+                    {cacheMetrics?.memory_usage?.total_mb || 1247}
                   </div>
                   <div className="text-sm text-dark-500 mb-3">Cache Size (MB)</div>
                   <div className="text-xs text-dark-500">
-                    Efficiency: {((cacheMetrics.memory_usage?.efficiency || 0.82) * 100).toFixed(0)}%
+                    Efficiency: {((cacheMetrics?.memory_usage?.efficiency || 0.82) * 100).toFixed(0)}%
                   </div>
                 </div>
 
                 {/* Cache Misses Today */}
                 <div className="text-center">
                   <div className="text-3xl font-bold text-yellow-400 mb-2">
-                    {cacheMetrics.daily_stats?.total_misses || 143}
+                    {cacheMetrics?.daily_stats?.total_misses || 143}
                   </div>
                   <div className="text-sm text-dark-500 mb-3">Cache Misses Today</div>
                   <div className="text-xs text-dark-500">
-                    Miss Rate: {((1 - (cacheMetrics.overall_hit_rate || 0.847)) * 100).toFixed(1)}%
+                    Miss Rate: {((1 - (cacheMetrics?.overall_hit_rate || 0.847)) * 100).toFixed(1)}%
                   </div>
                 </div>
 
                 {/* Active Cache Entries */}
                 <div className="text-center">
                   <div className="text-3xl font-bold text-accent-purple mb-2">
-                    {cacheMetrics.active_entries || 8456}
+                    {cacheMetrics?.active_entries || 8456}
                   </div>
                   <div className="text-sm text-dark-500 mb-3">Active Entries</div>
                   <div className="text-xs text-dark-500">
-                    Avg TTL: {cacheMetrics.avg_ttl_seconds || 3600}s
+                    Avg TTL: {cacheMetrics?.avg_ttl_seconds || 3600}s
                   </div>
                 </div>
               </div>
@@ -336,7 +337,7 @@ export default function DashboardPage() {
               <div className="mt-6 pt-6 border-t border-dark-300">
                 <h4 className="text-sm font-medium text-accent-blue mb-3">Model Cache Performance</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {Object.entries(cacheMetrics.hit_rates || {
+                  {Object.entries(cacheMetrics?.hit_rates || {
                     'XGBoost': 0.92,
                     'Transformer': 0.87,
                     'LSTM': 0.81
@@ -376,17 +377,17 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-white">CPU Usage</span>
                       <span className="text-xs text-dark-500">
-                        {systemHealth.cpu_usage || 34.2}%
+                        {systemHealth?.cpu_usage || 34.2}%
                       </span>
                     </div>
                     <div className="w-full bg-dark-300 h-2 sharp-card overflow-hidden">
                       <motion.div
                         className={`h-full ${
-                          (systemHealth.cpu_usage || 34.2) > 80 ? 'bg-trading-loss' :
-                          (systemHealth.cpu_usage || 34.2) > 60 ? 'bg-yellow-400' : 'bg-trading-profit'
+                          (systemHealth?.cpu_usage || 34.2) > 80 ? 'bg-trading-loss' :
+                          (systemHealth?.cpu_usage || 34.2) > 60 ? 'bg-yellow-400' : 'bg-trading-profit'
                         }`}
                         initial={{ width: 0 }}
-                        animate={{ width: `${systemHealth.cpu_usage || 34.2}%` }}
+                        animate={{ width: `${systemHealth?.cpu_usage || 34.2}%` }}
                         transition={{ duration: 1 }}
                       />
                     </div>
@@ -395,17 +396,17 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-white">Memory Usage</span>
                       <span className="text-xs text-dark-500">
-                        {systemHealth.memory_usage || 67.8}%
+                        {systemHealth?.memory_usage || 67.8}%
                       </span>
                     </div>
                     <div className="w-full bg-dark-300 h-2 sharp-card overflow-hidden">
                       <motion.div
                         className={`h-full ${
-                          (systemHealth.memory_usage || 67.8) > 90 ? 'bg-trading-loss' :
-                          (systemHealth.memory_usage || 67.8) > 75 ? 'bg-yellow-400' : 'bg-accent-blue'
+                          (systemHealth?.memory_usage || 67.8) > 90 ? 'bg-trading-loss' :
+                          (systemHealth?.memory_usage || 67.8) > 75 ? 'bg-yellow-400' : 'bg-accent-blue'
                         }`}
                         initial={{ width: 0 }}
-                        animate={{ width: `${systemHealth.memory_usage || 67.8}%` }}
+                        animate={{ width: `${systemHealth?.memory_usage || 67.8}%` }}
                         transition={{ duration: 1, delay: 0.2 }}
                       />
                     </div>
@@ -414,14 +415,14 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-white">Network I/O</span>
                       <span className="text-xs text-dark-500">
-                        {systemHealth.network_io || 23.1} MB/s
+                        {systemHealth?.network_io || 23.1} MB/s
                       </span>
                     </div>
                     <div className="w-full bg-dark-300 h-2 sharp-card overflow-hidden">
                       <motion.div
                         className="h-full bg-accent-purple"
                         initial={{ width: 0 }}
-                        animate={{ width: `${Math.min((systemHealth.network_io || 23.1) * 2, 100)}%` }}
+                        animate={{ width: `${Math.min((systemHealth?.network_io || 23.1) * 2, 100)}%` }}
                         transition={{ duration: 1, delay: 0.4 }}
                       />
                     </div>
@@ -433,12 +434,12 @@ export default function DashboardPage() {
               <div className="bg-dark-200 sharp-card p-6 border border-dark-300">
                 <h3 className="text-lg font-semibold text-white mb-4">API Performance</h3>
                 <div className="space-y-3">
-                  {Object.entries(systemHealth.api_performance || {
+                  {Object.entries(systemHealth?.api_performance || {
                     '/api/dashboard': { avg_response_time: 45, requests_per_minute: 127 },
                     '/api/ml-dashboard': { avg_response_time: 78, requests_per_minute: 89 },
                     '/api/sentiment': { avg_response_time: 34, requests_per_minute: 156 },
                     '/api/risk': { avg_response_time: 67, requests_per_minute: 72 }
-                  }).map(([endpoint, metrics], index) => (
+                  }).map(([endpoint, metrics]: [string, any], index: number) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-dark-300/50 sharp-card">
                       <div>
                         <div className="text-sm text-white font-mono">{endpoint}</div>
