@@ -68,6 +68,7 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
       max_nodes: 100
     })
     const [isUsingMockData, setIsUsingMockData] = useState(false)
+    const [hasInitialized, setHasInitialized] = useState(false)
 
     const getNodeShape = (nodeType: string) => {
       const shapes = {
@@ -667,11 +668,10 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
     useEffect(() => {
       // Only load data once when component mounts
       let mounted = true
-      let hasLoaded = false
 
       const initializeData = async () => {
-        if (mounted && !hasLoaded) {
-          hasLoaded = true
+        if (mounted && !hasInitialized) {
+          setHasInitialized(true)
           try {
             await loadData()
           } catch (error) {
@@ -689,7 +689,7 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
           networkRef.current = null
         }
       }
-    }, []) // Empty dependency array to run only once
+    }, [hasInitialized]) // Depend on hasInitialized to prevent multiple calls
 
     useEffect(() => {
       if (networkRef.current) {

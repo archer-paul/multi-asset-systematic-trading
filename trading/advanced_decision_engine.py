@@ -160,20 +160,30 @@ class SignalAggregator:
             volume_score = self._extract_volume_score(signals_data)
             risk_score = self._extract_risk_score(signals_data)
 
+            # Extract new macro-economic and geopolitical scores
+            macro_score = self._extract_macro_economic_score(signals_data)
+            geopolitical_score = self._extract_geopolitical_score(signals_data)
+            commodities_score = self._extract_commodities_score(signals_data)
+            forex_score = self._extract_forex_score(signals_data)
+
             # Get adaptive weights for current regime
             weights = self._get_adaptive_weights(market_regime, symbol)
 
             # Calculate weighted composite score
             composite_score = (
-                technical_score * weights.get('technical', 0.25) +
-                ml_score * weights.get('ml', 0.30) +
-                sentiment_score * weights.get('sentiment', 0.15) +
-                fundamental_score * weights.get('fundamental', 0.20) +
-                momentum_score * weights.get('momentum', 0.10)
+                technical_score * weights.get('technical', 0.20) +
+                ml_score * weights.get('ml', 0.25) +
+                sentiment_score * weights.get('sentiment', 0.12) +
+                fundamental_score * weights.get('fundamental', 0.15) +
+                momentum_score * weights.get('momentum', 0.08) +
+                macro_score * weights.get('macro', 0.10) +
+                geopolitical_score * weights.get('geopolitical', 0.05) +
+                commodities_score * weights.get('commodities', 0.03) +
+                forex_score * weights.get('forex', 0.02)
             )
 
             # Calculate confidence based on signal agreement
-            signal_values = [technical_score, ml_score, sentiment_score, fundamental_score, momentum_score]
+            signal_values = [technical_score, ml_score, sentiment_score, fundamental_score, momentum_score, macro_score, geopolitical_score, commodities_score, forex_score]
             signal_agreement = self._calculate_signal_agreement(signal_values)
             confidence = min(signal_agreement * 1.2, 1.0)
 
@@ -530,6 +540,106 @@ class SignalAggregator:
 
         except Exception as e:
             logger.error(f"Correlation penalty calculation failed: {e}")
+            return 0.0
+
+    def _extract_macro_economic_score(self, data: Dict[str, Any]) -> float:
+        """Extract macro-economic analysis score"""
+        try:
+            macro_analysis = data.get('macro_economic_analysis', {})
+
+            # Economic strength and macro score
+            economic_strength = macro_analysis.get('economic_strength', 0.0)
+            macro_score = macro_analysis.get('macro_score', 0.5)
+
+            # Inflation impact (negative impact reduces score)
+            inflation_impact = macro_analysis.get('inflation_impact', 0.0)
+            gdp_growth = macro_analysis.get('gdp_growth', 0.0)
+
+            # Combined macro score (-1 to 1)
+            combined_score = (
+                economic_strength * 0.4 +
+                (macro_score - 0.5) * 2 * 0.3 +  # Convert 0-1 to -1 to 1
+                gdp_growth * 0.2 +
+                -inflation_impact * 0.1  # Negative inflation impact
+            )
+
+            return np.clip(combined_score, -1.0, 1.0)
+
+        except Exception as e:
+            logger.error(f"Macro-economic score extraction failed: {e}")
+            return 0.0
+
+    def _extract_geopolitical_score(self, data: Dict[str, Any]) -> float:
+        """Extract geopolitical risk score"""
+        try:
+            geopolitical_analysis = data.get('geopolitical_risk_analysis', {})
+
+            # Overall risk (higher risk = lower score)
+            overall_risk = geopolitical_analysis.get('overall_risk', 0.0)
+            sector_risk_multiplier = geopolitical_analysis.get('sector_risk_multiplier', 1.0)
+            risk_count = geopolitical_analysis.get('risk_count', 0)
+
+            # Convert risks to negative scores
+            risk_score = -overall_risk * sector_risk_multiplier
+
+            # Risk count penalty
+            risk_count_penalty = min(risk_count * 0.1, 0.5)
+
+            # Combined geopolitical score
+            geo_score = risk_score - risk_count_penalty
+
+            return np.clip(geo_score, -1.0, 1.0)
+
+        except Exception as e:
+            logger.error(f"Geopolitical score extraction failed: {e}")
+            return 0.0
+
+    def _extract_commodities_score(self, data: Dict[str, Any]) -> float:
+        """Extract commodities market score"""
+        try:
+            commodities_analysis = data.get('commodities_analysis', {})
+
+            # Gold correlation and inflation hedge
+            gold_correlation = commodities_analysis.get('gold_correlation', 0.0)
+            inflation_hedge_score = commodities_analysis.get('inflation_hedge_score', 0.0)
+            commodities_momentum = commodities_analysis.get('commodities_momentum', 0.0)
+            volatility_score = commodities_analysis.get('volatility_score', 0.5)
+
+            # Combined commodities score
+            commodities_score = (
+                gold_correlation * 0.3 +
+                inflation_hedge_score * 0.3 +
+                commodities_momentum * 0.3 +
+                (volatility_score - 0.5) * 2 * 0.1  # Convert volatility to -1 to 1
+            )
+
+            return np.clip(commodities_score, -1.0, 1.0)
+
+        except Exception as e:
+            logger.error(f"Commodities score extraction failed: {e}")
+            return 0.0
+
+    def _extract_forex_score(self, data: Dict[str, Any]) -> float:
+        """Extract forex market score"""
+        try:
+            forex_analysis = data.get('forex_analysis', {})
+
+            # Currency strength and volatility
+            currency_strength = forex_analysis.get('currency_strength', 0.0)
+            currency_volatility = forex_analysis.get('currency_volatility', 0.0)
+            carry_trade_signal = forex_analysis.get('carry_trade_signal', 0.0)
+
+            # Combined forex score
+            forex_score = (
+                currency_strength * 0.5 +
+                carry_trade_signal * 0.3 +
+                -min(currency_volatility, 1.0) * 0.2  # High volatility is negative
+            )
+
+            return np.clip(forex_score, -1.0, 1.0)
+
+        except Exception as e:
+            logger.error(f"Forex score extraction failed: {e}")
             return 0.0
 
     def _create_default_metrics(self, symbol: str) -> SignalMetrics:

@@ -20,6 +20,8 @@ from analysis.enhanced_sentiment import EnhancedSentimentAnalyzer
 from analysis.commodities_forex import CommoditiesForexAnalyzer
 from analysis.social_media_v2 import SocialMediaAnalyzerV2 as SocialMediaAnalyzer
 from analysis.multi_timeframe import MultiTimeframeAnalyzer
+from analysis.macro_economic_analyzer import MacroEconomicAnalyzer
+from analysis.geopolitical_risk_analyzer import GeopoliticalRiskAnalyzer
 from ml.traditional_ml import TraditionalMLPredictor
 from ml.transformer_ml import TransformerMLPredictor
 from ml.parallel_trainer import ParallelMLTrainer, BatchMLTrainer
@@ -63,7 +65,7 @@ class TradingBotOrchestrator:
         self.social_media_analyzer = SocialMediaAnalyzer(self.config) if self.config.ENABLE_SOCIAL_SENTIMENT else None
         self.multi_timeframe_analyzer = MultiTimeframeAnalyzer(self.config)
         self.macro_economic_analyzer = MacroEconomicAnalyzer(self.config, self.sentiment_analyzer)
-        # self.geopolitical_risk_analyzer = GeopoliticalRiskAnalyzer(self.config)
+        self.geopolitical_risk_analyzer = GeopoliticalRiskAnalyzer(self.config)
         
         # ML components
         self.traditional_ml = TraditionalMLPredictor(self.config) if self.config.ENABLE_TRADITIONAL_ML else None
@@ -198,7 +200,22 @@ class TradingBotOrchestrator:
             
             self.logger.debug("Processing news sentiment...")
             await self._process_news_sentiment(latest_news)
-            
+
+            # Collect macro-economic and geopolitical analysis
+            self.logger.debug("Collecting macro-economic data and analysis...")
+            macro_analysis = await self.data_collector.collect_macro_economic_data(self.macro_economic_analyzer)
+
+            self.logger.debug("Analyzing geopolitical risks...")
+            geopolitical_analysis = self.geopolitical_risk_analyzer.analyze_geopolitical_risks(macro_analysis)
+
+            # Collect commodities and forex data
+            self.logger.debug("Collecting commodities and forex data...")
+            commodity_data = await self.commodities_forex_analyzer.collect_commodity_data()
+            forex_data = await self.commodities_forex_analyzer.collect_forex_data()
+
+            commodities_analysis = self.commodities_forex_analyzer.analyze_commodity_trends(commodity_data)
+            forex_analysis = self.commodities_forex_analyzer.analyze_forex_trends(forex_data)
+
             social_sentiment = {}
             if self.social_media_analyzer:
                 self.logger.debug("Collecting social media sentiment...")
@@ -208,10 +225,10 @@ class TradingBotOrchestrator:
             multi_timeframe_analysis = await self.multi_timeframe_analyzer.analyze_multi_timeframe(self.config.ALL_SYMBOLS[:20])
             
             self.logger.debug("Generating ML predictions...")
-            predictions = await self._generate_predictions(current_market_data, latest_news, social_sentiment, multi_timeframe_analysis)
-            
+            predictions = await self._generate_predictions(current_market_data, latest_news, social_sentiment, multi_timeframe_analysis, macro_analysis, geopolitical_analysis, commodities_analysis, forex_analysis)
+
             self.logger.debug("Generating trading signals...")
-            signals = await self._generate_trading_signals(predictions, current_market_data, latest_news, social_sentiment, multi_timeframe_analysis)
+            signals = await self._generate_trading_signals(predictions, current_market_data, latest_news, social_sentiment, multi_timeframe_analysis, macro_analysis, geopolitical_analysis, commodities_analysis, forex_analysis)
             
             self.logger.debug("Executing trades...")
             execution_results = await self._execute_trades(signals)
@@ -301,7 +318,7 @@ class TradingBotOrchestrator:
                             await self.cache_manager.save_ml_model(result['model'], model_name, symbol=None, training_metadata={'training_type': 'batch_cross_symbol'})
         return training_summary
     
-    async def _generate_predictions(self, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict) -> Dict[str, Dict]:
+    async def _generate_predictions(self, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict, macro_analysis: Dict = None, geopolitical_analysis: Dict = None, commodities_analysis: Dict = None, forex_analysis: Dict = None) -> Dict[str, Dict]:
         predictions = {}
         for symbol in self.config.ALL_SYMBOLS:
             if symbol not in market_data: continue
@@ -327,7 +344,7 @@ class TradingBotOrchestrator:
             social_data=social_data, multi_timeframe_data=multi_timeframe_data, region=region
         )
 
-    async def _generate_trading_signals(self, predictions: Dict, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict) -> List[Dict]:
+    async def _generate_trading_signals(self, predictions: Dict, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict, macro_analysis: Dict = None, geopolitical_analysis: Dict = None, commodities_analysis: Dict = None, forex_analysis: Dict = None) -> List[Dict]:
         """Generate trading signals using advanced decision engine"""
         portfolio_summary = await self.portfolio_manager.get_portfolio_summary()
         current_positions = portfolio_summary.get('positions', {})
@@ -347,7 +364,8 @@ class TradingBotOrchestrator:
                 # Aggregate all data sources for this symbol
                 symbol_data = self._prepare_symbol_data(
                     symbol, predictions, market_data, news_data,
-                    social_data, multi_timeframe_data
+                    social_data, multi_timeframe_data, macro_analysis, geopolitical_analysis,
+                    commodities_analysis, forex_analysis
                 )
 
                 all_signals_data[symbol] = symbol_data
@@ -371,10 +389,12 @@ class TradingBotOrchestrator:
         except Exception as e:
             self.logger.error(f"Advanced signal generation failed: {e}", exc_info=True)
             # Fallback to basic signal generation
-            return await self._generate_basic_signals(predictions, market_data, news_data, social_data, multi_timeframe_data)
+            return await self._generate_basic_signals(predictions, market_data, news_data, social_data, multi_timeframe_data, macro_analysis, geopolitical_analysis, commodities_analysis, forex_analysis)
 
     def _prepare_symbol_data(self, symbol: str, predictions: Dict, market_data: Dict,
-                            news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict) -> Dict[str, Any]:
+                            news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict,
+                            macro_analysis: Dict = None, geopolitical_analysis: Dict = None,
+                            commodities_analysis: Dict = None, forex_analysis: Dict = None) -> Dict[str, Any]:
         """Prepare comprehensive data for a single symbol"""
         try:
             symbol_market_data = market_data.get(symbol, {})
@@ -487,6 +507,63 @@ class TradingBotOrchestrator:
                 'sector_concentration': 0.2   # Sector concentration risk
             }
 
+            # Macro-economic analysis
+            macro_economic_analysis = {}
+            if macro_analysis:
+                macro_economic_analysis = {
+                    'macro_score': macro_analysis.get('score', 0.5),
+                    'economic_strength': macro_analysis.get('economic_indicators', {}).get('overall_trend', 0.0),
+                    'inflation_impact': macro_analysis.get('economic_indicators', {}).get('inflation_risk', 0.0),
+                    'gdp_growth': macro_analysis.get('economic_indicators', {}).get('gdp_growth', 0.0)
+                }
+
+            # Geopolitical risk analysis
+            geopolitical_risk_analysis = {}
+            if geopolitical_analysis:
+                geopolitical_summary = geopolitical_analysis.get('summary', {})
+                symbol_sector = symbol_market_data.get('sector', 'Unknown')
+
+                # Check if symbol's sector is in impacted sectors
+                sector_risk_multiplier = 1.0
+                for risk in geopolitical_analysis.get('risks', []):
+                    if symbol_sector in risk.get('impact_sectors', []):
+                        sector_risk_multiplier = max(sector_risk_multiplier, risk.get('risk_score', 0.0))
+
+                geopolitical_risk_analysis = {
+                    'overall_risk': geopolitical_summary.get('overall_risk_score', 0.0),
+                    'sector_risk_multiplier': sector_risk_multiplier,
+                    'risk_count': geopolitical_summary.get('risk_count', 0),
+                    'top_risk_type': geopolitical_summary.get('top_risk_type', 'None')
+                }
+
+            # Commodities analysis
+            commodities_market_analysis = {}
+            if commodities_analysis:
+                commodities_market_analysis = {
+                    'gold_correlation': commodities_analysis.get('gold_correlation', 0.0),
+                    'inflation_hedge_score': commodities_analysis.get('inflation_hedge_score', 0.0),
+                    'commodities_momentum': commodities_analysis.get('momentum_signal', 0.0),
+                    'volatility_score': commodities_analysis.get('volatility_score', 0.5)
+                }
+
+            # Forex analysis
+            forex_market_analysis = {}
+            if forex_analysis:
+                # Determine currency relevance for the symbol
+                symbol_region = symbol_market_data.get('region', 'US')
+                currency_relevance = 'USD'
+                if 'UK' in symbol_region or '.L' in symbol:
+                    currency_relevance = 'GBP'
+                elif 'EU' in symbol_region or '.PA' in symbol or '.DE' in symbol:
+                    currency_relevance = 'EUR'
+
+                forex_market_analysis = {
+                    'currency_strength': forex_analysis.get('currency_strength', {}).get(currency_relevance, 0.0),
+                    'currency_volatility': forex_analysis.get('volatility_analysis', {}).get('avg_volatility', 0.0),
+                    'carry_trade_signal': forex_analysis.get('carry_trade_signal', 0.0),
+                    'relevant_currency': currency_relevance
+                }
+
             return {
                 'symbol': symbol,
                 'current_price': current_price,
@@ -498,6 +575,10 @@ class TradingBotOrchestrator:
                 'volume_analysis': volume_analysis,
                 'risk_analysis': risk_analysis,
                 'correlation_analysis': correlation_analysis,
+                'macro_economic_analysis': macro_economic_analysis,
+                'geopolitical_risk_analysis': geopolitical_risk_analysis,
+                'commodities_analysis': commodities_market_analysis,
+                'forex_analysis': forex_market_analysis,
                 'sector_analysis': {
                     'strength': symbol_multi_timeframe.get('sector_strength', 0.0),
                     'sector': symbol_market_data.get('sector', 'Unknown')
@@ -548,7 +629,7 @@ class TradingBotOrchestrator:
 
         return signals
 
-    async def _generate_basic_signals(self, predictions: Dict, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict) -> List[Dict]:
+    async def _generate_basic_signals(self, predictions: Dict, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict, macro_analysis: Dict = None, geopolitical_analysis: Dict = None, commodities_analysis: Dict = None, forex_analysis: Dict = None) -> List[Dict]:
         """Fallback basic signal generation method"""
         try:
             signals = []

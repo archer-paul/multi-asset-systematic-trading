@@ -20,6 +20,7 @@ import EntityDetailsPanel from '../../components/KnowledgeGraph/EntityDetailsPan
 import CascadeAnalysisPanel from '../../components/KnowledgeGraph/CascadeAnalysisPanel'
 import GraphFiltersPanel from '../../components/KnowledgeGraph/GraphFiltersPanel'
 import GraphStatsPanel from '../../components/KnowledgeGraph/GraphStatsPanel'
+import ErrorBoundary from '../../components/ErrorBoundary'
 import { useSocket } from '../../hooks/useSocket'
 import { knowledgeGraphAPI } from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -328,7 +329,8 @@ const KnowledgeGraphPage: FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-dark-100">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-dark-100">
       {/* Header */}
       <div className="border-b border-dark-300 bg-dark-200">
         <div className="px-6 py-4">
@@ -592,6 +594,7 @@ const KnowledgeGraphPage: FC = () => {
         </motion.div>
       </div>
     </div>
+    </ErrorBoundary>
   )
 }
 

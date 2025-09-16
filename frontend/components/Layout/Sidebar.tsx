@@ -18,6 +18,7 @@ import {
   ArrowTrendingUpIcon,
   ClockIcon,
   PresentationChartLineIcon,
+  GlobeAltIcon,
 } from '@heroicons/react/24/outline'
 
 const coreMenuItems = [
@@ -72,6 +73,13 @@ const advancedMenuItems = [
     href: '/congress-trading',
     icon: BuildingLibraryIcon,
     description: 'Congressional Trading Analysis',
+  },
+  {
+    id: 'geopolitics',
+    name: 'Geopolitical Analysis',
+    href: '/geopolitics',
+    icon: GlobeAltIcon,
+    description: 'Global Risk & Market Context',
   },
   {
     id: 'emerging-stocks',

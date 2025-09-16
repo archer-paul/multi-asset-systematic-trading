@@ -88,10 +88,129 @@ async def get_sentiment_summary():
 @dashboard_api.route('/api/geopolitical-risk', methods=['GET'])
 async def get_geopolitical_risk():
     """Endpoint to provide geopolitical risk analysis."""
-    if _orchestrator_instance and _orchestrator_instance.geopolitical_risk_analyzer and _orchestrator_instance.latest_analysis:
-        # Assuming geopolitical_risks are stored in latest_analysis
-        return jsonify(_orchestrator_instance.latest_analysis.get('geopolitical_risks', {'risks': [], 'summary': {}}))
-    return jsonify({'error': 'Geopolitical data not available'}), 500
+    try:
+        if _orchestrator_instance and hasattr(_orchestrator_instance, 'geopolitical_risk_analyzer'):
+            # Get latest macro-economic analysis first
+            macro_analysis = await _orchestrator_instance.data_collector.collect_macro_economic_data(_orchestrator_instance.macro_economic_analyzer)
+
+            # Get geopolitical analysis based on macro data
+            geopolitical_analysis = _orchestrator_instance.geopolitical_risk_analyzer.analyze_geopolitical_risks(macro_analysis)
+
+            return jsonify(geopolitical_analysis)
+
+        # Fallback data for when analyzer is not available
+        return jsonify({
+            'risks': [],
+            'summary': {
+                'overall_risk_score': 0.0,
+                'risk_count': 0,
+                'top_risk_type': 'No data available',
+                'top_impacted_sectors': []
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error fetching geopolitical risk data: {e}")
+        return jsonify({'error': 'Geopolitical data not available'}), 500
+
+@dashboard_api.route('/api/macro-economic-analysis', methods=['GET'])
+async def get_macro_economic_analysis():
+    """Endpoint to provide macro-economic analysis."""
+    try:
+        if _orchestrator_instance and hasattr(_orchestrator_instance, 'macro_economic_analyzer'):
+            # Get macro-economic analysis
+            macro_analysis = await _orchestrator_instance.data_collector.collect_macro_economic_data(_orchestrator_instance.macro_economic_analyzer)
+
+            return jsonify(macro_analysis)
+
+        # Fallback data
+        return jsonify({
+            'score': 0.5,
+            'economic_indicators': {
+                'overall_trend': 0.0,
+                'inflation_risk': 0.0,
+                'gdp_growth': 0.0
+            },
+            'articles': [],
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error fetching macro-economic analysis: {e}")
+        return jsonify({'error': 'Macro-economic data not available'}), 500
+
+@dashboard_api.route('/api/commodities-analysis', methods=['GET'])
+async def get_commodities_analysis():
+    """Endpoint to provide commodities analysis."""
+    try:
+        if _orchestrator_instance and hasattr(_orchestrator_instance, 'commodities_forex_analyzer'):
+            # Get commodities data and analysis
+            commodity_data = await _orchestrator_instance.commodities_forex_analyzer.collect_commodity_data()
+            commodities_analysis = _orchestrator_instance.commodities_forex_analyzer.analyze_commodity_trends(commodity_data)
+
+            return jsonify({
+                'analysis': commodities_analysis,
+                'raw_data': {symbol: {
+                    'symbol': data.symbol,
+                    'name': data.name,
+                    'price': data.price,
+                    'change_24h': data.change_24h,
+                    'change_pct_24h': data.change_pct_24h,
+                    'volume_24h': data.volume_24h,
+                    'timestamp': data.timestamp.isoformat() if data.timestamp else None
+                } for symbol, data in commodity_data.items()},
+                'timestamp': datetime.now().isoformat()
+            })
+
+        # Fallback data
+        return jsonify({
+            'analysis': {
+                'gold_correlation': 0.0,
+                'inflation_hedge_score': 0.0,
+                'commodities_momentum': 0.0,
+                'volatility_score': 0.5
+            },
+            'raw_data': {},
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error fetching commodities analysis: {e}")
+        return jsonify({'error': 'Commodities data not available'}), 500
+
+@dashboard_api.route('/api/forex-analysis', methods=['GET'])
+async def get_forex_analysis():
+    """Endpoint to provide forex analysis."""
+    try:
+        if _orchestrator_instance and hasattr(_orchestrator_instance, 'commodities_forex_analyzer'):
+            # Get forex data and analysis
+            forex_data = await _orchestrator_instance.commodities_forex_analyzer.collect_forex_data()
+            forex_analysis = _orchestrator_instance.commodities_forex_analyzer.analyze_forex_trends(forex_data)
+
+            return jsonify({
+                'analysis': forex_analysis,
+                'raw_data': {pair: {
+                    'pair': data.pair,
+                    'rate': data.rate,
+                    'change_24h': data.change_24h,
+                    'change_pct_24h': data.change_pct_24h,
+                    'bid': data.bid,
+                    'ask': data.ask,
+                    'timestamp': data.timestamp.isoformat() if data.timestamp else None
+                } for pair, data in forex_data.items()},
+                'timestamp': datetime.now().isoformat()
+            })
+
+        # Fallback data
+        return jsonify({
+            'analysis': {
+                'currency_strength': {'USD': 0.0, 'EUR': 0.0, 'GBP': 0.0},
+                'volatility_analysis': {'avg_volatility': 0.0},
+                'carry_trade_signal': 0.0
+            },
+            'raw_data': {},
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error fetching forex analysis: {e}")
+        return jsonify({'error': 'Forex data not available'}), 500
 
 @dashboard_api.route('/api/congress-trading', methods=['GET'])
 async def get_congress_trading():
