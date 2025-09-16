@@ -30,7 +30,7 @@ WORKDIR /app
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user --timeout 300 -r requirements.txt
+RUN pip install --no-cache-dir --timeout 300 -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim
@@ -52,15 +52,7 @@ RUN groupadd -r tradingbot && useradd -r -g tradingbot -m -d /app -s /bin/bash t
 # Set working directory
 WORKDIR /app
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /home/tradingbot/.local
 
-# Fix ownership of copied files
-USER root
-RUN chown -R tradingbot:tradingbot /home/tradingbot/.local
-
-# Set environment variables for Python packages
-ENV PATH=/home/tradingbot/.local/bin:$PATH
 
 # Copy application code (as root to avoid permission issues)
 COPY . .
@@ -78,10 +70,10 @@ ENV PYTHONUNBUFFERED=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Expose port for the dashboard server
-EXPOSE 5000
+EXPOSE 8080
 
 # Command to run the application using Gunicorn
-CMD ["gunicorn", "-w", "1", "-k", "eventlet", "-b", ":5000", "--timeout", "300", "--graceful-timeout", "300", "run_dashboard:create_socketio_app()"]
+CMD ["gunicorn", "--workers", "1", "--threads", "10", "--worker-class", "eventlet", "-b", ":8080", "--timeout", "300", "--graceful-timeout", "300", "wsgi:app"]

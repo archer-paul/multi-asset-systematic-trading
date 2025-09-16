@@ -155,21 +155,21 @@ class EnhancedTradingBot:
                 logging.info("Knowledge Graph component is not active, skipping initialization.")
 
             # 8. Initialiser le serveur web unifié
-            logging.info("Setting up web servers...")
+            logging.info("Web servers will be started by WSGI server (Gunicorn).")
             
-            # Start Flask-SocketIO server in a separate thread
-            dashboard_thread = threading.Thread(target=run_dashboard_server, args=(self.bot_orchestrator,), daemon=True)
-            dashboard_thread.start()
-            logging.info("Flask-SocketIO server started in a separate thread.")
+            # # Start Flask-SocketIO server in a separate thread
+            # dashboard_thread = threading.Thread(target=run_dashboard_server, args=(self.bot_orchestrator,), daemon=True)
+            # dashboard_thread.start()
+            # logging.info("Flask-SocketIO server started in a separate thread.")
 
-            # Start aiohttp server for health checks
-            self.web_app = await setup_server(self)
-            self.web_runner = web.AppRunner(self.web_app)
-            await self.web_runner.setup()
-            port = int(os.environ.get('PORT', 8080))
-            site = web.TCPSite(self.web_runner, '0.0.0.0', port)
-            await site.start()
-            logging.info(f"AIOHTTP health check server started successfully on 0.0.0.0:{port}")
+            # # Start aiohttp server for health checks
+            # self.web_app = await setup_server(self)
+            # self.web_runner = web.AppRunner(self.web_app)
+            # await self.web_runner.setup()
+            # port = int(os.environ.get('PORT', 8080))
+            # site = web.TCPSite(self.web_runner, '0.0.0.0', port)
+            # await site.start()
+            # logging.info(f"AIOHTTP health check server started successfully on 0.0.0.0:{port}")
             
             self.is_initialized = True
             logging.info("Enhanced Trading Bot fully initialized!")
