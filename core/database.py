@@ -225,6 +225,17 @@ class DatabaseManager:
                     end_time TIMESTAMP,
                     metadata JSONB
                 )
+            ''',
+            'portfolio_value_history': '''
+                CREATE TABLE IF NOT EXISTS portfolio_value_history (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP NOT NULL,
+                    portfolio_value FLOAT NOT NULL,
+                    cash_balance FLOAT,
+                    positions_value FLOAT,
+                    unrealized_pnl FLOAT,
+                    metadata JSONB
+                )
             '''
         }
         

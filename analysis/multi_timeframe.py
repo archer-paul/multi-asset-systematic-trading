@@ -138,10 +138,10 @@ class MultiTimeframeAnalyzer:
                 indicators = {}
                 
                 # Price data
-                high = df['High'].values
-                low = df['Low'].values
-                close = df['Close'].values
-                volume = df['Volume'].values
+                high = df['High'].values.astype(np.double)
+                low = df['Low'].values.astype(np.double)
+                close = df['Close'].values.astype(np.double)
+                volume = df['Volume'].values.astype(np.double)
                 
                 # Trend Indicators
                 indicators['SMA_20'] = talib.SMA(close, timeperiod=20)

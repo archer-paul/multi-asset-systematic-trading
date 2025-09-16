@@ -15,6 +15,7 @@ import asyncio
 from scipy.optimize import minimize
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
+from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -568,10 +569,27 @@ class PortfolioOptimizer:
             if not signal_metrics:
                 return {}
 
-            # Filter strong signals
-            strong_signals = [s for s in signal_metrics if s.confidence > 0.3 and abs(s.composite_score) > 0.2]
+            # Debug: Log signal quality distribution
+            logger.info(f"Signal metrics distribution:")
+            high_conf = [s for s in signal_metrics if s.confidence > 0.5]
+            med_conf = [s for s in signal_metrics if 0.3 <= s.confidence <= 0.5]
+            low_conf = [s for s in signal_metrics if s.confidence < 0.3]
+            high_score = [s for s in signal_metrics if abs(s.composite_score) > 0.3]
+            med_score = [s for s in signal_metrics if 0.1 <= abs(s.composite_score) <= 0.3]
+
+            logger.info(f"  Confidence: High(>0.5)={len(high_conf)}, Med(0.3-0.5)={len(med_conf)}, Low(<0.3)={len(low_conf)}")
+            logger.info(f"  Score: High(>0.3)={len(high_score)}, Med(0.1-0.3)={len(med_score)}")
+
+            # Show top 5 signals
+            top_signals = sorted(signal_metrics, key=lambda x: x.confidence * abs(x.composite_score), reverse=True)[:5]
+            for i, s in enumerate(top_signals):
+                logger.info(f"  Top {i+1}: {s.symbol} - conf:{s.confidence:.2f}, score:{s.composite_score:.2f}")
+
+            # Filter strong signals (reduced thresholds)
+            strong_signals = [s for s in signal_metrics if s.confidence > 0.2 and abs(s.composite_score) > 0.1]
 
             if not strong_signals:
+                logger.warning("No signals passed reduced filtering criteria")
                 return {}
 
             # Build expected returns vector
@@ -827,6 +845,11 @@ class AdvancedPortfolioDecisionEngine:
 
         # Performance tracking integration
         self.performance_feedback_enabled = True
+
+        # Auto-retraining scheduler
+        self.last_full_retrain = None
+        self.retrain_interval_days = config.get('retrain_interval_days', 30)  # Monthly by default
+        self.retrain_threshold_accuracy = config.get('retrain_threshold_accuracy', 0.65)  # Trigger if below 65%
 
     async def make_portfolio_decisions(self,
                                      all_signals_data: Dict[str, Any],
@@ -1199,3 +1222,239 @@ class AdvancedPortfolioDecisionEngine:
 
         except Exception as e:
             logger.error(f"Error updating from ML ensemble feedback: {e}")
+
+    async def check_and_trigger_retraining(self) -> bool:
+        """Check if full model retraining is needed and trigger if necessary"""
+        try:
+            # Check time-based retraining
+            time_based_retrain = False
+            if self.last_full_retrain:
+                days_since_retrain = (datetime.now() - self.last_full_retrain).days
+                time_based_retrain = days_since_retrain >= self.retrain_interval_days
+
+            # Check performance-based retraining
+            performance_analytics = await self.get_performance_analytics()
+            performance_based_retrain = False
+
+            if isinstance(performance_analytics, dict) and 'overall_accuracy' in performance_analytics:
+                current_accuracy = performance_analytics['overall_accuracy']
+                performance_based_retrain = current_accuracy < self.retrain_threshold_accuracy
+
+                logger.info(f"Current model accuracy: {current_accuracy:.1%} (threshold: {self.retrain_threshold_accuracy:.1%})")
+
+            # Trigger retraining if needed
+            if time_based_retrain or performance_based_retrain:
+                reason = []
+                if time_based_retrain:
+                    reason.append(f"time-based ({days_since_retrain} days)")
+                if performance_based_retrain:
+                    reason.append(f"performance-based ({current_accuracy:.1%} < {self.retrain_threshold_accuracy:.1%})")
+
+                logger.warning(f"Model retraining triggered: {', '.join(reason)}")
+
+                # Try to trigger automatic retraining
+                success = await self._trigger_automatic_retraining()
+
+                if success:
+                    self.last_full_retrain = datetime.now()
+                    logger.info("Automatic retraining completed successfully")
+                else:
+                    logger.error("Automatic retraining failed - manual intervention required")
+                    await self._send_retraining_alert()
+
+                return success
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Error checking retraining needs: {e}")
+            return False
+
+    async def _trigger_automatic_retraining(self) -> bool:
+        """Trigger automatic ML model retraining"""
+        try:
+            logger.info("Attempting automatic model retraining...")
+
+            # Option 1: Use parallel trainer if available
+            if hasattr(self, 'parallel_trainer') and self.parallel_trainer:
+                # Trigger parallel training for all symbols
+                training_results = await self.parallel_trainer.train_all_symbols_async()
+                success_rate = sum(1 for r in training_results.values() if r.get('status') == 'success') / len(training_results)
+
+                if success_rate > 0.7:  # 70% success rate threshold
+                    logger.info(f"Parallel retraining completed with {success_rate:.1%} success rate")
+                    return True
+
+            # Option 2: Use Cloud VM if configured
+            vm_training_success = await self._trigger_cloud_vm_training()
+            if vm_training_success:
+                return True
+
+            # Option 3: Local incremental retraining
+            logger.info("Falling back to local incremental retraining...")
+            incremental_success = await self._perform_incremental_retraining()
+            return incremental_success
+
+        except Exception as e:
+            logger.error(f"Automatic retraining failed: {e}")
+            return False
+
+    async def _trigger_cloud_vm_training(self) -> bool:
+        """Trigger training on GCP VM using PowerShell script"""
+        try:
+            import subprocess
+            import os
+
+            # Check if PowerShell script exists
+            script_path = Path(__file__).parent.parent / "gcp" / "ml-training-setup.ps1"
+            if not script_path.exists():
+                logger.debug("GCP training script not found")
+                return False
+
+            logger.info("Triggering cloud VM training...")
+
+            # Execute PowerShell script to start training VM
+            result = subprocess.run([
+                "powershell.exe", "-ExecutionPolicy", "Bypass",
+                "-File", str(script_path)
+            ], capture_output=True, text=True, timeout=300)
+
+            if result.returncode == 0:
+                logger.info("Cloud VM training initiated successfully")
+                return True
+            else:
+                logger.error(f"Cloud VM training failed: {result.stderr}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error triggering cloud VM training: {e}")
+            return False
+
+    async def _perform_incremental_retraining(self) -> bool:
+        """Perform incremental model retraining with available data"""
+        try:
+            if not self.ensemble_predictor:
+                return False
+
+            logger.info("Starting incremental model retraining...")
+
+            # Get recent performance data for retraining
+            if self.db_manager and self.db_manager.connection:
+                cursor = self.db_manager.connection.cursor()
+
+                # Get recent trading signals and their performance
+                cursor.execute("""
+                    SELECT symbol, metadata, timestamp
+                    FROM trading_signals
+                    WHERE signal_type = 'decision_performance'
+                    AND timestamp > NOW() - INTERVAL '30 days'
+                    ORDER BY timestamp DESC
+                    LIMIT 1000
+                """)
+
+                recent_data = cursor.fetchall()
+                cursor.close()
+
+                if len(recent_data) < 50:  # Need minimum data for retraining
+                    logger.warning("Insufficient data for incremental retraining")
+                    return False
+
+                # Extract features and labels for retraining
+                training_features = []
+                training_labels = []
+
+                for symbol, metadata, timestamp in recent_data:
+                    if isinstance(metadata, dict):
+                        # Extract features from metadata
+                        features = self._extract_features_from_metadata(metadata)
+                        actual_return = metadata.get('actual_return', 0)
+
+                        if features:
+                            training_features.append(features)
+                            training_labels.append(actual_return)
+
+                if len(training_features) >= 20:
+                    # Perform incremental update of Bayesian weights
+                    for i, (features, label) in enumerate(zip(training_features, training_labels)):
+                        # Update ensemble with recent performance
+                        model_predictions = {
+                            'traditional_ml': features.get('traditional_prediction', 0),
+                            'transformer_ml': features.get('transformer_prediction', 0),
+                            'ensemble': features.get('ensemble_prediction', 0)
+                        }
+
+                        if hasattr(self.ensemble_predictor, 'bayesian_averaging'):
+                            self.ensemble_predictor.bayesian_averaging.update_model_performance(
+                                model_predictions, label
+                            )
+
+                    logger.info(f"Incremental retraining completed with {len(training_features)} samples")
+                    return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Incremental retraining failed: {e}")
+            return False
+
+    def _extract_features_from_metadata(self, metadata: Dict) -> Optional[Dict]:
+        """Extract training features from decision metadata"""
+        try:
+            if not isinstance(metadata, dict):
+                return None
+
+            # Extract relevant features for retraining
+            features = {
+                'traditional_prediction': metadata.get('traditional_ml_score', 0),
+                'transformer_prediction': metadata.get('transformer_ml_score', 0),
+                'ensemble_prediction': metadata.get('expected_return', 0),
+                'technical_score': metadata.get('technical_score', 0),
+                'sentiment_score': metadata.get('sentiment_score', 0),
+                'fundamental_score': metadata.get('fundamental_score', 0),
+                'market_regime': metadata.get('market_regime', 'unknown'),
+                'conviction': metadata.get('conviction', 0)
+            }
+
+            return features
+
+        except Exception as e:
+            logger.debug(f"Error extracting features: {e}")
+            return None
+
+    async def _send_retraining_alert(self):
+        """Send alert when manual retraining intervention is needed"""
+        try:
+            alert_message = {
+                'type': 'retraining_alert',
+                'timestamp': datetime.now().isoformat(),
+                'message': 'ML model performance below threshold - manual retraining recommended',
+                'details': {
+                    'current_accuracy': getattr(self, 'last_accuracy_check', 'unknown'),
+                    'threshold': self.retrain_threshold_accuracy,
+                    'last_retrain': self.last_full_retrain.isoformat() if self.last_full_retrain else 'never',
+                    'recommended_action': 'Run gcp/ml-training-setup.ps1 for full retraining'
+                }
+            }
+
+            # Log the alert
+            logger.error(f"RETRAINING ALERT: {alert_message['message']}")
+            logger.error(f"Recommended action: {alert_message['details']['recommended_action']}")
+
+            # Store alert in database if available
+            if self.db_manager and self.db_manager.connection:
+                cursor = self.db_manager.connection.cursor()
+                cursor.execute("""
+                    INSERT INTO trading_signals (symbol, signal_type, confidence, price, strategy, metadata)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    'SYSTEM',
+                    'retraining_alert',
+                    0.0,
+                    0.0,
+                    'AdvancedDecisionEngine',
+                    alert_message
+                ))
+                cursor.close()
+
+        except Exception as e:
+            logger.error(f"Error sending retraining alert: {e}")

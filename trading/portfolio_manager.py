@@ -485,8 +485,9 @@ class PerformanceAnalyzer:
 class AdvancedPortfolioManager:
     """Advanced Portfolio Management System"""
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Dict[str, Any] = None, db_manager=None):
         self.config = config or {}
+        self.db_manager = db_manager
         
         # Portfolio initialization
         self.initial_capital = self.config.get('initial_capital', 100000.0)
@@ -884,6 +885,51 @@ class AdvancedPortfolioManager:
         # Keep only recent snapshots (e.g., last 1000)
         if len(self.portfolio_snapshots) > 1000:
             self.portfolio_snapshots = self.portfolio_snapshots[-1000:]
+
+        # Record portfolio value history in the database
+        if self.db_manager:
+            await self.record_portfolio_value_history(snapshot)
+
+    async def record_portfolio_value_history(self, snapshot: PortfolioSnapshot):
+        """Record portfolio value time series data to the database."""
+        if not self.db_manager or not self.db_manager.connection:
+            logger.warning("Database manager not available, skipping portfolio history recording.")
+            return
+
+        try:
+            cursor = self.db_manager.connection.cursor()
+            query = """
+                INSERT INTO portfolio_value_history (
+                    timestamp, portfolio_value, cash_balance, positions_value, unrealized_pnl, metadata
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            
+            # Convert positions to a JSON-serializable format
+            positions_dict = {symbol: asdict(pos) for symbol, pos in snapshot.positions.items()}
+            metadata = json.dumps({
+                'positions': positions_dict,
+                'performance_metrics': snapshot.performance_metrics
+            }, default=str)
+
+            params = (
+                snapshot.timestamp,
+                snapshot.total_value,
+                snapshot.cash_balance,
+                snapshot.positions_value,
+                snapshot.unrealized_pnl,
+                metadata
+            )
+            
+            cursor.execute(query, params)
+            self.db_manager.connection.commit()
+            cursor.close()
+            logger.debug(f"Successfully recorded portfolio snapshot at {snapshot.timestamp}")
+
+        except Exception as e:
+            logger.error(f"Failed to record portfolio value history: {e}")
+            # Rollback in case of error
+            if self.db_manager and self.db_manager.connection:
+                self.db_manager.connection.rollback()
     
     def _get_position_entry_price(self, symbol: str, trade_time: datetime) -> float:
         """Get position entry price at specific time (simplified)"""

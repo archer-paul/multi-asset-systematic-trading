@@ -252,8 +252,10 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
           initializeNetwork()
         }
 
-        setIsUsingMockData(false)
-        onMockModeChanged?.(false)
+        if (isUsingMockData) {
+          setIsUsingMockData(false)
+          onMockModeChanged?.(false)
+        }
         toast.success(`Graphe chargé: ${data.nodes.length} entités, ${data.links.length} relations`)
 
       } catch (error: any) {
@@ -503,8 +505,10 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
           initializeNetwork()
         }
 
-        setIsUsingMockData(true)
-        onMockModeChanged?.(true)
+        if (!isUsingMockData) {
+          setIsUsingMockData(true)
+          onMockModeChanged?.(true)
+        }
         toast.success(`Graphe de démonstration chargé: ${mockData.nodes.length} entités, ${mockData.links.length} relations (backend indisponible)`)
       } finally {
         onLoading(false)
@@ -604,17 +608,10 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
     }
 
     const applyFilters = async (filters: GraphFilters) => {
-      // If we're already using mock data, don't try to reload from API
-      if (isUsingMockData) {
-        console.log('Already using mock data, skipping filter application')
-        return
-      }
-
       try {
         await loadData(filters)
       } catch (error) {
-        console.error('Error applying filters, skipping:', error)
-        // Don't retry infinitely, just log and skip
+        console.error('Error applying filters:', error)
       }
     }
 
@@ -669,11 +666,24 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
 
     useEffect(() => {
       // Only load data once when component mounts
-      if (!isUsingMockData) {
-        loadData()
+      let mounted = true
+      let hasLoaded = false
+
+      const initializeData = async () => {
+        if (mounted && !hasLoaded) {
+          hasLoaded = true
+          try {
+            await loadData()
+          } catch (error) {
+            console.error('Error initializing knowledge graph:', error)
+          }
+        }
       }
 
+      initializeData()
+
       return () => {
+        mounted = false
         if (networkRef.current) {
           networkRef.current.destroy()
           networkRef.current = null

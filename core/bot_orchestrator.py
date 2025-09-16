@@ -5,6 +5,7 @@ Manages all components and orchestrates the trading process
 
 import logging
 import asyncio
+import json
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -61,7 +62,7 @@ class TradingBotOrchestrator:
         self.commodities_forex_analyzer = CommoditiesForexAnalyzer(self.config)
         self.social_media_analyzer = SocialMediaAnalyzer(self.config) if self.config.ENABLE_SOCIAL_SENTIMENT else None
         self.multi_timeframe_analyzer = MultiTimeframeAnalyzer(self.config)
-        # self.macro_economic_analyzer = MacroEconomicAnalyzer(self.config, self.sentiment_analyzer)
+        self.macro_economic_analyzer = MacroEconomicAnalyzer(self.config, self.sentiment_analyzer)
         # self.geopolitical_risk_analyzer = GeopoliticalRiskAnalyzer(self.config)
         
         # ML components
@@ -84,7 +85,7 @@ class TradingBotOrchestrator:
         self.ensemble_predictor = EnsemblePredictor(self.config, self.traditional_ml, self.transformer_ml)
         
         self.risk_manager = RiskManager(self.config)
-        self.portfolio_manager = PortfolioManager(self.config)
+        self.portfolio_manager = PortfolioManager(self.config, db_manager=self.db_manager)
         self.trading_strategy = TradingStrategy(self.config)
 
         # Advanced decision engine for sophisticated portfolio management
@@ -217,10 +218,14 @@ class TradingBotOrchestrator:
             
             self.logger.debug("Updating portfolio and performance metrics...")
             portfolio_summary = await self.portfolio_manager.get_portfolio_summary()
-            performance_metrics = await self.performance_analyzer.calculate_current_metrics()
+            performance_metrics = self.portfolio_manager.get_comprehensive_performance_metrics()
 
             # Update advanced decision engine with ML ensemble feedback
             await self.advanced_decision_engine.update_from_ml_ensemble_feedback()
+
+            # Check if model retraining is needed (weekly check)
+            if self.cycle_count % 7 == 0:  # Check every 7 cycles (weekly)
+                await self.advanced_decision_engine.check_and_trigger_retraining()
 
             await self._save_cycle_results(signals, execution_results, portfolio_summary, performance_metrics)
 
@@ -234,7 +239,7 @@ class TradingBotOrchestrator:
                 'timestamp': cycle_start_time,
                 'duration_seconds': (datetime.now() - cycle_start_time).total_seconds(),
                 'signals_generated': len(signals),
-                'trades_executed': sum(1 for r in execution_results if r.get('executed', False)),
+                'trades_executed': sum(1 for r in (execution_results or []) if r.get('executed', False)),
                 'portfolio_summary': portfolio_summary,
                 'performance_metrics': performance_metrics,
                 'signals': signals,
@@ -324,6 +329,8 @@ class TradingBotOrchestrator:
 
     async def _generate_trading_signals(self, predictions: Dict, market_data: Dict, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict) -> List[Dict]:
         """Generate trading signals using advanced decision engine"""
+        portfolio_summary = await self.portfolio_manager.get_portfolio_summary()
+        current_positions = portfolio_summary.get('positions', {})
         try:
             self.logger.info("Generating advanced trading signals...")
 
@@ -335,8 +342,6 @@ class TradingBotOrchestrator:
                     continue
 
                 # Get current portfolio weight for this symbol
-                portfolio_summary = await self.portfolio_manager.get_portfolio_summary()
-                current_positions = portfolio_summary.get('positions', {})
                 current_weight = current_positions.get(symbol, {}).get('weight', 0.0)
 
                 # Aggregate all data sources for this symbol
@@ -509,7 +514,8 @@ class TradingBotOrchestrator:
         signals = []
 
         for symbol, decision in portfolio_decisions.items():
-            if decision.action == 'hold':
+            # Include more decisions, not just buy/sell
+            if decision.action == 'hold' and decision.conviction < 0.1:
                 continue
 
             # Map decision action to signal type
@@ -580,8 +586,49 @@ class TradingBotOrchestrator:
         pass
 
     async def _execute_trades(self, signals: List[Dict]) -> List[Dict]:
-        # ... (implementation unchanged)
-        pass
+        """Execute trades based on generated signals"""
+        execution_results = []
+
+        if not signals:
+            self.logger.info("No signals to execute")
+            return execution_results
+
+        try:
+            for signal in signals:
+                symbol = signal.get('symbol')
+                signal_type = signal.get('signal_type')
+                confidence = signal.get('confidence', 0)
+
+                # Filter signals by confidence threshold
+                min_confidence = getattr(self.config, 'MIN_EXECUTION_CONFIDENCE', 0.6)
+                if confidence < min_confidence:
+                    execution_results.append({
+                        'symbol': symbol,
+                        'signal_type': signal_type,
+                        'status': 'skipped',
+                        'reason': f'Confidence {confidence:.2f} below threshold {min_confidence}',
+                        'executed': False
+                    })
+                    continue
+
+                # For now, simulate trade execution (in a real bot, this would connect to a broker)
+                execution_results.append({
+                    'symbol': symbol,
+                    'signal_type': signal_type,
+                    'confidence': confidence,
+                    'status': 'simulated',
+                    'executed': True,
+                    'price': signal.get('price', 0),
+                    'quantity': signal.get('quantity', 0),
+                    'timestamp': datetime.now()
+                })
+
+            self.logger.info(f"Executed {len([r for r in execution_results if r.get('executed', False)])} trades from {len(signals)} signals")
+
+        except Exception as e:
+            self.logger.error(f"Error executing trades: {e}")
+
+        return execution_results
 
     async def _save_initial_state(self):
         # ... (implementation unchanged)
@@ -601,17 +648,17 @@ class TradingBotOrchestrator:
                 """, (
                     f"cycle_{self.cycle_count}",
                     performance_metrics.get('total_return_pct', 0),
-                    len(execution_results),
+                    len(execution_results or []),
                     performance_metrics.get('win_rate_pct', 0) / 100,
                     performance_metrics.get('max_drawdown_pct', 0) / 100,
                     self.last_cycle_time,
                     datetime.now(),
-                    {
+                    json.dumps({
                         'signal_count': len(signals),
-                        'advanced_decisions': len(self.advanced_decision_engine.last_decisions),
+                        'advanced_decisions': len(self.advanced_decision_engine.last_decisions) if self.advanced_decision_engine.last_decisions else 0,
                         'market_regime': getattr(self.advanced_decision_engine.regime_detector, 'last_detected_regime', 'unknown'),
                         'ensemble_performance': getattr(self.ensemble_predictor, 'recent_performance', {}),
-                    }
+                    })
                 ))
 
                 cursor.close()

@@ -49,6 +49,17 @@ class Config:
         self.ENABLE_TRANSFORMER_ML = os.getenv('ENABLE_TRANSFORMER_ML', 'True').lower() == 'true'
         self.SKIP_ML_TRAINING = os.getenv('SKIP_ML_TRAINING', 'False').lower() == 'true'
         self.ENABLE_SOCIAL_SENTIMENT = self.enable_social_sentiment
+
+        # Congress Trading Configuration
+        self.ENABLE_CONGRESS_TRACKING = os.getenv('ENABLE_CONGRESS_TRACKING', 'False').lower() == 'true'
+        self.CONGRESS_LOOKBACK_DAYS = int(os.getenv('CONGRESS_LOOKBACK_DAYS', '90'))
+        self.MIN_CONGRESS_TRANSACTION = float(os.getenv('MIN_CONGRESS_TRANSACTION', '15000'))
+
+        # Enhanced Features Configuration
+        self.ENABLE_EMERGING_DETECTION = os.getenv('ENABLE_EMERGING_DETECTION', 'True').lower() == 'true'
+        self.ENABLE_LONG_TERM_ANALYSIS = os.getenv('ENABLE_LONG_TERM_ANALYSIS', 'True').lower() == 'true'
+        self.MAX_SYMBOLS_PER_CYCLE = int(os.getenv('MAX_SYMBOLS_PER_CYCLE', '50'))
+        self.REFRESH_INTERVAL = int(os.getenv('REFRESH_INTERVAL', '300'))
         
         # Trading Symbols - Import from universe configuration
         try:

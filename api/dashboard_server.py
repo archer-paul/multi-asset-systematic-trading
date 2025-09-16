@@ -129,10 +129,17 @@ def broadcast_update(socketio, data_type: str, data: Dict[str, Any]):
     }
 
     # Update cache
-    data_cache[data_type] = data
+    if data_type == 'trades':
+        if not isinstance(data_cache.get('trades'), list):
+            data_cache['trades'] = []
+        data_cache['trades'].append(data)
+        if len(data_cache['trades']) > 50:
+            data_cache['trades'] = data_cache['trades'][-50:]
+    else:
+        data_cache[data_type] = data
 
     # Broadcast to all connected clients
-    socketio.emit('dashboard_update', message, broadcast=True)
+    socketio.emit('dashboard_update', message)
     logger.debug(f"Broadcasted {data_type} update to {len(connected_clients)} clients")
 
 def start_data_generators(socketio):
@@ -168,14 +175,6 @@ def start_data_generators(socketio):
                 'timestamp': datetime.now().isoformat(),
                 'confidence': round(random.uniform(0.7, 0.95), 3)
             }
-
-            # Add to trades cache (keep last 50 trades)
-            global data_cache
-            if 'trades' not in data_cache:
-                data_cache['trades'] = []
-            data_cache['trades'].append(data)
-            if len(data_cache['trades']) > 50:
-                data_cache['trades'] = data_cache['trades'][-50:]
 
             broadcast_update(socketio, 'trades', data)
             eventlet.sleep(2)  # Update every 2 seconds

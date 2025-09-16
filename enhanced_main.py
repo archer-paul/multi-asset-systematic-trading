@@ -14,8 +14,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 from aiohttp import web
 import threading
-from run_dashboard_server import run_dashboard_server
-from api.server import setup_server
+
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -132,7 +131,7 @@ class EnhancedTradingBot:
             logging.info("Enhanced social media analyzer initialized")
             
             # 5. Analyseur des transactions du Congrès
-            enable_congress = getattr(self.config, 'ENABLE_CONGRESS_TRACKING', True)
+            enable_congress = getattr(self.config, 'ENABLE_CONGRESS_TRACKING', False)
             if enable_congress:
                 self.congress_analyzer = CongressTradingAnalyzer(self.config)
                 congress_status = self.congress_analyzer.get_api_status()
@@ -156,20 +155,6 @@ class EnhancedTradingBot:
 
             # 8. Initialiser le serveur web unifié
             logging.info("Web servers will be started by WSGI server (Gunicorn).")
-            
-            # # Start Flask-SocketIO server in a separate thread
-            # dashboard_thread = threading.Thread(target=run_dashboard_server, args=(self.bot_orchestrator,), daemon=True)
-            # dashboard_thread.start()
-            # logging.info("Flask-SocketIO server started in a separate thread.")
-
-            # # Start aiohttp server for health checks
-            # self.web_app = await setup_server(self)
-            # self.web_runner = web.AppRunner(self.web_app)
-            # await self.web_runner.setup()
-            # port = int(os.environ.get('PORT', 8080))
-            # site = web.TCPSite(self.web_runner, '0.0.0.0', port)
-            # await site.start()
-            # logging.info(f"AIOHTTP health check server started successfully on 0.0.0.0:{port}")
             
             self.is_initialized = True
             logging.info("Enhanced Trading Bot fully initialized!")
@@ -246,6 +231,7 @@ class EnhancedTradingBot:
             
             # Phase 5: Génération du dashboard complet
             logging.info("Phase 5: Generating investment dashboard...")
+            dashboard_data = {}
             try:
                 dashboard_data = await self.dashboard.generate_complete_dashboard(
                     short_term_signals=short_term_result.get('signals', []),

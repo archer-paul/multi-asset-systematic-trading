@@ -116,6 +116,43 @@ class EnhancedSentimentAnalyzer:
         """Cleanup resources"""
         if self.session:
             await self.session.close()
+
+    async def analyze_financial_sentiment(self, text: str, company: str = None, region: str = 'US') -> Dict[str, Any]:
+        """Analyze financial sentiment for a given text"""
+        try:
+            # Use Gemini analyzer if available
+            if self.gemini_analyzer and hasattr(self.gemini_analyzer, 'analyze_sentiment'):
+                result = await self.gemini_analyzer.analyze_sentiment(text, company, region)
+                return result
+
+            # Fallback to simple sentiment analysis
+            positive_words = ['gain', 'rise', 'up', 'bull', 'positive', 'growth', 'profit', 'buy', 'strong', 'beat', 'exceed']
+            negative_words = ['loss', 'fall', 'down', 'bear', 'negative', 'decline', 'sell', 'weak', 'miss', 'below']
+
+            text_lower = text.lower()
+            positive_count = sum(1 for word in positive_words if word in text_lower)
+            negative_count = sum(1 for word in negative_words if word in text_lower)
+
+            total_words = len(text.split())
+            if total_words == 0:
+                return {'sentiment_score': 0.0, 'confidence': 0.0}
+
+            sentiment_score = (positive_count - negative_count) / max(total_words, 1)
+            sentiment_score = max(-1.0, min(1.0, sentiment_score * 10))  # Scale and clamp
+
+            confidence = min(1.0, (positive_count + negative_count) / max(total_words, 1) * 5)
+
+            return {
+                'sentiment_score': sentiment_score,
+                'confidence': confidence,
+                'positive_indicators': positive_count,
+                'negative_indicators': negative_count,
+                'text_length': len(text)
+            }
+
+        except Exception as e:
+            logger.error(f"Error in financial sentiment analysis: {e}")
+            return {'sentiment_score': 0.0, 'confidence': 0.0}
     
     async def _fetch_rss_feed(self, url: str, source_name: str) -> List[Dict[str, Any]]:
         """Fetch and parse RSS feed with improved error handling"""

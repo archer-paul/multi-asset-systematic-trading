@@ -61,7 +61,7 @@ class ParallelMLTrainer:
             if status in ['completed', 'failed', 'error']:
                 logger.info(f"Progress: {progress:.1f}% - {symbol} {model_type}: {status}")
     
-    def _train_traditional_model(self, symbol: str, market_data: pd.DataFrame) -> Dict[str, Any]:
+    async def _train_traditional_model(self, symbol: str, market_data: pd.DataFrame) -> Dict[str, Any]:
         """Train traditional ML model for a single symbol"""
         try:
             # Create model instance (thread-safe)
@@ -70,7 +70,7 @@ class ParallelMLTrainer:
             self._update_progress(symbol, 'traditional', 'training')
             
             # Train model
-            result = asyncio.run(model.train(market_data))
+            result = await model.train(market_data)
             
             if result.get('success'):
                 self._update_progress(symbol, 'traditional', 'completed')
@@ -100,7 +100,7 @@ class ParallelMLTrainer:
                 'error': str(e)
             }
     
-    def _train_transformer_model(self, symbol: str, market_data: pd.DataFrame, 
+    async def _train_transformer_model(self, symbol: str, market_data: pd.DataFrame, 
                                 news_data: List = None, social_data: Dict = None, 
                                 region: str = None) -> Dict[str, Any]:
         """Train transformer ML model for a single symbol"""
@@ -120,13 +120,13 @@ class ParallelMLTrainer:
             self._update_progress(symbol, 'transformer', 'training')
             
             # Train model
-            result = asyncio.run(model.train_model(
+            result = await model.train_model(
                 symbol=symbol,
                 market_data=market_data,
                 news_data=news_data or [],
                 social_data=social_data or {},
                 region=region
-            ))
+            )
             
             # Release GPU resource
             if gpu_acquired and self.gpu_queue:
@@ -192,67 +192,62 @@ class ParallelMLTrainer:
         
         logger.info(f"Training {len(symbols_to_train)} symbols with {task_count} total tasks")
         
-        # Create thread pool executor
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            
-            # Submit traditional ML training tasks
-            if train_traditional:
-                for symbol in symbols_to_train:
-                    if symbol in market_data:
-                        future = executor.submit(
-                            self._train_traditional_model, 
-                            symbol, 
-                            market_data[symbol]
-                        )
-                        training_tasks.append(future)
-            
-            # Submit transformer ML training tasks (with GPU serialization)
-            if train_transformer:
-                for symbol in symbols_to_train:
-                    if symbol in market_data:
-                        # Get symbol-specific data
-                        symbol_news = [
-                            item for item in (news_data or [])
-                            if symbol in item.get('companies_mentioned', [])
-                        ]
-                        symbol_social = [
-                            item for item in (social_data or [])
-                            if symbol in item.get('symbols', [])
-                        ]
-                        region = self.config.get_symbol_region(symbol) if hasattr(self.config, 'get_symbol_region') else 'US'
-                        
-                        future = executor.submit(
-                            self._train_transformer_model,
-                            symbol,
-                            market_data[symbol],
-                            symbol_news,
-                            symbol_social,
-                            region
-                        )
-                        training_tasks.append(future)
-            
-            # Wait for all tasks to complete
-            logger.info("Waiting for training tasks to complete...")
-            results = []
-            
-            for future in concurrent.futures.as_completed(training_tasks):
-                try:
-                    result = future.result()
-                    results.append(result)
+        # Create asyncio tasks
+        training_tasks = []
+        
+        # Create traditional ML training tasks
+        if train_traditional:
+            for symbol in symbols_to_train:
+                if symbol in market_data:
+                    task = self._train_traditional_model(
+                        symbol,
+                        market_data[symbol]
+                    )
+                    training_tasks.append(task)
+
+        # Create transformer ML training tasks
+        if train_transformer:
+            for symbol in symbols_to_train:
+                if symbol in market_data:
+                    symbol_news = [
+                        item for item in (news_data or [])
+                        if symbol in item.get('companies_mentioned', [])
+                    ]
+                    symbol_social = [
+                        item for item in (social_data or [])
+                        if symbol in item.get('symbols', [])
+                    ]
+                    region = self.config.get_symbol_region(symbol) if hasattr(self.config, 'get_symbol_region') else 'US'
                     
-                    # Store successful results
-                    if result['success']:
-                        key = f"{result['symbol']}_{result['model_type']}"
-                        self.training_results[key] = result
-                    
-                except Exception as e:
-                    logger.error(f"Training task failed with exception: {e}")
-                    results.append({
-                        'success': False,
-                        'error': str(e),
-                        'symbol': 'unknown',
-                        'model_type': 'unknown'
-                    })
+                    task = self._train_transformer_model(
+                        symbol,
+                        market_data[symbol],
+                        symbol_news,
+                        symbol_social,
+                        region
+                    )
+                    training_tasks.append(task)
+
+        # Wait for all tasks to complete
+        logger.info("Waiting for training tasks to complete...")
+        results = await asyncio.gather(*training_tasks, return_exceptions=True)
+        
+        # Process results
+        processed_results = []
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"A training task failed with an exception: {result}", exc_info=True)
+                processed_results.append({
+                    'success': False, 'error': str(result),
+                    'symbol': 'unknown', 'model_type': 'unknown'
+                })
+            elif result:
+                processed_results.append(result)
+                if result.get('success'):
+                    key = f"{result['symbol']}_{result['model_type']}"
+                    self.training_results[key] = result
+        
+        results = processed_results
         
         # Compile final results
         successful_results = [r for r in results if r['success']]

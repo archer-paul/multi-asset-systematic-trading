@@ -10,7 +10,7 @@ SP500_TOP100 = [
     'CRM', 'ACN', 'ADBE', 'NOW', 'TXN', 'QCOM', 'INTU', 'CSCO', 'AMD', 'IBM',
     
     # Finance
-    'BRK.B', 'JPM', 'V', 'MA', 'UNH', 'PG', 'JNJ', 'HD', 'CVX', 'LLY',
+    'BRK-B', 'JPM', 'V', 'MA', 'UNH', 'PG', 'JNJ', 'HD', 'CVX', 'LLY',
     'ABBV', 'AVGO', 'WMT', 'XOM', 'PFE', 'KO', 'COST', 'DIS', 'ABT', 'MRK',
     
     # Consumer & Retail

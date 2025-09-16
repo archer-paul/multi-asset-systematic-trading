@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   # PostgreSQL Database
@@ -58,6 +58,8 @@ services:
       ENABLE_TRADITIONAL_ML: "true"
       ENABLE_TRANSFORMER_ML: "true"
       ENABLE_SOCIAL_SENTIMENT: "false"
+      SKIP_ML_TRAINING: "true"
+      ENABLE_CONGRESS_TRACKING: "false"
       
       # API Keys (set these in .env file)
       GEMINI_API_KEY: ${GEMINI_API_KEY}
