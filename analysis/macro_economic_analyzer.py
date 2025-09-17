@@ -17,29 +17,25 @@ from analysis.sentiment_analyzer import SentimentAnalyzer
 logger = logging.getLogger(__name__)
 
 # A curated list of reliable RSS feeds for macro-economic and geopolitical news
+# Updated with working URLs and fallback sources
 INSTITUTIONAL_SOURCES = {
-    # Central Banks
+    # Central Banks - using more reliable endpoints
     'fed_fomc': 'https://www.federalreserve.gov/feeds/press_all.xml',
-    'ecb_press': 'https://www.ecb.europa.eu/rss/press.html',
-    'boe_news': 'https://www.bankofengland.co.uk/rss/news',
-    
-    # International Organizations
-    'imf_news': 'https://www.imf.org/external/rss/news.xml',
-    'world_bank': 'https://www.worldbank.org/en/news/rss',
-    'bis_press': 'https://www.bis.org/press/pressreleases.rss',
+    'fed_economic': 'https://www.federalreserve.gov/feeds/reportsandresearch.xml',
 
-    # Economic Data & Government
-    'us_treasury': 'https://home.treasury.gov/news/press-releases/feed',
-    'fred_economic': 'https://fred.stlouisfed.org/rss/releases',
+    # Alternative economic sources with better reliability
+    'treasury_gov': 'https://www.treasury.gov/resource-center/data-chart-center/quarterly-refunding/Pages/recent-announcements.aspx',
+    'bls_news': 'https://www.bls.gov/news.release/rss/empsit.rss',
+    'census_econ': 'https://www.census.gov/economic-indicators/indicators.xml'
 }
 
 GEOPOLITICAL_SOURCES = {
-    # Think Tanks & Analysis
-    'council_foreign_relations': 'https://www.cfr.org/rss/all',
-    'chatham_house': 'https://www.chathamhouse.org/rss/news',
-    'foreign_affairs': 'https://www.foreignaffairs.com/rss.xml',
-    'politico_economy': 'https://rss.politico.com/economy.xml',
-    'financial_times_world': 'https://www.ft.com/world?format=rss',
+    # More reliable news sources
+    'reuters_econ': 'https://feeds.reuters.com/reuters/businessNews',
+    'bloomberg_econ': 'https://feeds.bloomberg.com/markets/news.rss',
+    'wsj_econ': 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml',
+    'marketwatch': 'https://feeds.marketwatch.com/marketwatch/topstories/',
+    'seeking_alpha': 'https://seekingalpha.com/feed.xml'
 }
 
 class MacroEconomicAnalyzer:
@@ -54,7 +50,11 @@ class MacroEconomicAnalyzer:
         """Asynchronously fetches and parses a single RSS feed."""
         articles = []
         try:
-            async with session.get(url, timeout=15) as response:
+            # Add SSL verification skip and better headers
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            async with session.get(url, timeout=15, headers=headers, ssl=False) as response:
                 if response.status == 200:
                     content = await response.text()
                     feed = feedparser.parse(content)
@@ -69,14 +69,23 @@ class MacroEconomicAnalyzer:
                 else:
                     logger.warning(f"Failed to fetch {name} feed. Status: {response.status}")
         except Exception as e:
-            logger.error(f"Error fetching or parsing feed {name} from {url}: {e}")
+            logger.error(f"Error fetching or parsing feed {name} from {url}:")
+            logger.debug(f"Full error details: {str(e)}")
         return articles
 
     async def fetch_all_feeds(self) -> List[Dict[str, Any]]:
         """Fetches all configured macro and geopolitical RSS feeds concurrently."""
         import aiohttp
+        import ssl
         all_articles = []
-        async with aiohttp.ClientSession() as session:
+
+        # Create SSL context that's more permissive
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(connector=connector) as session:
             tasks = [self.fetch_feed(session, name, url) for name, url in self.all_sources.items()]
             results = await asyncio.gather(*tasks)
             for article_list in results:

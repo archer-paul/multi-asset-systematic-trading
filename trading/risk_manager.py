@@ -67,10 +67,11 @@ class RiskMetrics:
 
 class VaRCalculator:
     """Value at Risk calculator with multiple methodologies"""
-    
+
     def __init__(self, confidence_levels: List[float] = None):
         self.confidence_levels = confidence_levels or [0.95, 0.99]
         self.lookback_periods = [30, 60, 252]  # 1 month, 2 months, 1 year
+        self.emergency_var_threshold = 0.15  # 15% max single-day VaR
     
     def calculate_parametric_var(self, returns: pd.Series, confidence_level: float = 0.95, 
                                 portfolio_value: float = 1.0) -> float:
@@ -94,10 +95,443 @@ class VaRCalculator:
         except Exception as e:
             logger.error(f"Parametric VaR calculation failed: {e}")
             return portfolio_value * 0.05
-    
+
     def calculate_historical_var(self, returns: pd.Series, confidence_level: float = 0.95,
                                 portfolio_value: float = 1.0) -> float:
         """Calculate historical VaR using empirical distribution"""
+        try:
+            if len(returns) < 10:
+                return portfolio_value * 0.05
+
+            # Sort returns and find percentile
+            sorted_returns = returns.sort_values()
+            percentile_index = int((1 - confidence_level) * len(sorted_returns))
+
+            if percentile_index == 0:
+                var_return = sorted_returns.iloc[0]
+            else:
+                var_return = sorted_returns.iloc[percentile_index - 1]
+
+            var = portfolio_value * abs(var_return)
+
+            # Emergency cap
+            max_var = portfolio_value * self.emergency_var_threshold
+            return min(var, max_var)
+
+        except Exception as e:
+            logger.error(f"Historical VaR calculation failed: {e}")
+            return portfolio_value * 0.05
+
+    def calculate_monte_carlo_var(self, returns: pd.Series, confidence_level: float = 0.95,
+                                 portfolio_value: float = 1.0, simulations: int = 1000) -> float:
+        """Calculate Monte Carlo VaR"""
+        try:
+            if len(returns) < 10:
+                return portfolio_value * 0.05
+
+            mean_return = returns.mean()
+            std_return = returns.std()
+
+            # Generate random scenarios
+            np.random.seed(42)  # For reproducibility
+            simulated_returns = np.random.normal(mean_return, std_return, simulations)
+
+            # Calculate VaR
+            var_return = np.percentile(simulated_returns, (1 - confidence_level) * 100)
+            var = portfolio_value * abs(var_return)
+
+            return min(var, portfolio_value * self.emergency_var_threshold)
+
+        except Exception as e:
+            logger.error(f"Monte Carlo VaR calculation failed: {e}")
+            return portfolio_value * 0.05
+
+class AdvancedRiskManager:
+    """Enhanced risk manager with real-time monitoring and dynamic adjustments"""
+
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+
+        # Risk limits
+        self.max_portfolio_risk = self.config.get('max_portfolio_risk', 0.02)  # 2% daily VaR
+        self.max_position_size = self.config.get('max_position_size', 0.1)  # 10% max position
+        self.max_sector_concentration = self.config.get('max_sector_concentration', 0.3)  # 30% per sector
+        self.max_drawdown_threshold = self.config.get('max_drawdown_threshold', 0.15)  # 15% max drawdown
+
+        # Dynamic risk adjustment
+        self.volatility_adjustment = self.config.get('volatility_adjustment', True)
+        self.correlation_adjustment = self.config.get('correlation_adjustment', True)
+
+        # Risk monitoring
+        self.var_calculator = VaRCalculator()
+        self.active_alerts = []
+        self.risk_metrics_history = []
+
+        logger.info("Advanced Risk Manager initialized with enhanced monitoring")
+
+    async def assess_pre_trade_risk(self, signal: TradingSignal, current_positions: Dict[str, Position],
+                                   portfolio_value: float, market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Comprehensive pre-trade risk assessment"""
+        try:
+            risk_assessment = {
+                'approved': True,
+                'recommended_size': signal.position_size,
+                'risk_factors': [],
+                'adjustments_made': [],
+                'risk_score': 0.0
+            }
+
+            # 1. Position size validation
+            max_size = self._calculate_max_position_size(signal.symbol, portfolio_value, market_data)
+            if signal.position_size > max_size:
+                risk_assessment['adjustments_made'].append(f"Position size reduced from {signal.position_size:.3f} to {max_size:.3f}")
+                risk_assessment['recommended_size'] = max_size
+
+            # 2. Portfolio concentration check
+            concentration_risk = self._check_concentration_risk(signal, current_positions, portfolio_value)
+            if concentration_risk['risk_level'] == RiskLevel.HIGH:
+                risk_assessment['recommended_size'] *= 0.5  # Reduce by 50%
+                risk_assessment['adjustments_made'].append("Position size reduced due to concentration risk")
+                risk_assessment['risk_factors'].append(concentration_risk)
+
+            # 3. Correlation risk assessment
+            correlation_risk = self._assess_correlation_risk(signal, current_positions, market_data)
+            if correlation_risk['high_correlation_count'] > 3:
+                risk_assessment['recommended_size'] *= 0.7  # Reduce by 30%
+                risk_assessment['adjustments_made'].append("Position size reduced due to correlation risk")
+                risk_assessment['risk_factors'].append(correlation_risk)
+
+            # 4. Volatility adjustment
+            if self.volatility_adjustment:
+                vol_adjustment = self._calculate_volatility_adjustment(signal.symbol, market_data)
+                risk_assessment['recommended_size'] *= vol_adjustment
+                if vol_adjustment < 1.0:
+                    risk_assessment['adjustments_made'].append(f"Position size adjusted for volatility (factor: {vol_adjustment:.2f})")
+
+            # 5. Calculate final risk score
+            risk_assessment['risk_score'] = self._calculate_overall_risk_score(
+                signal, current_positions, portfolio_value, market_data
+            )
+
+            # 6. Final approval check
+            if risk_assessment['risk_score'] > 0.8:
+                risk_assessment['approved'] = False
+                risk_assessment['risk_factors'].append({
+                    'type': 'high_risk_score',
+                    'message': f"Overall risk score too high: {risk_assessment['risk_score']:.2f}"
+                })
+
+            # Ensure minimum position size
+            if risk_assessment['recommended_size'] < 0.001:  # 0.1% minimum
+                risk_assessment['approved'] = False
+                risk_assessment['risk_factors'].append({
+                    'type': 'position_too_small',
+                    'message': "Adjusted position size below minimum threshold"
+                })
+
+            return risk_assessment
+
+        except Exception as e:
+            logger.error(f"Pre-trade risk assessment failed: {e}")
+            return {
+                'approved': False,
+                'recommended_size': 0.0,
+                'risk_factors': [{'type': 'assessment_error', 'message': str(e)}],
+                'adjustments_made': [],
+                'risk_score': 1.0
+            }
+
+    def _calculate_max_position_size(self, symbol: str, portfolio_value: float,
+                                   market_data: Dict[str, Any]) -> float:
+        """Calculate maximum allowed position size based on multiple factors"""
+        try:
+            # Base maximum position size
+            base_max = self.max_position_size
+
+            # Adjust for volatility
+            symbol_data = market_data.get(symbol, {})
+            volatility = symbol_data.get('volatility', 0.02)
+
+            # Higher volatility = smaller position size
+            vol_adjustment = min(1.0, 0.02 / max(volatility, 0.005))
+
+            # Adjust for liquidity
+            avg_volume = symbol_data.get('average_volume', 1000000)
+            liquidity_adjustment = min(1.0, avg_volume / 500000)  # Scale based on 500k volume baseline
+
+            # Combine adjustments
+            adjusted_max = base_max * vol_adjustment * liquidity_adjustment
+
+            return max(0.01, adjusted_max)  # Minimum 1%
+
+        except Exception as e:
+            logger.error(f"Max position size calculation failed: {e}")
+            return 0.01
+
+    def _check_concentration_risk(self, signal: TradingSignal, current_positions: Dict[str, Position],
+                                 portfolio_value: float) -> Dict[str, Any]:
+        """Check for portfolio concentration risk"""
+        try:
+            # Get sector information (simplified)
+            symbol_sector = self._get_symbol_sector(signal.symbol)
+
+            # Calculate current sector exposure
+            sector_exposure = 0.0
+            for position in current_positions.values():
+                if self._get_symbol_sector(position.symbol) == symbol_sector:
+                    sector_exposure += abs(position.position_size)
+
+            # Add new position
+            new_sector_exposure = sector_exposure + signal.position_size
+
+            # Check limits
+            if new_sector_exposure > self.max_sector_concentration:
+                return {
+                    'risk_level': RiskLevel.HIGH,
+                    'current_exposure': sector_exposure,
+                    'new_exposure': new_sector_exposure,
+                    'limit': self.max_sector_concentration,
+                    'sector': symbol_sector
+                }
+            elif new_sector_exposure > self.max_sector_concentration * 0.8:
+                return {
+                    'risk_level': RiskLevel.MEDIUM,
+                    'current_exposure': sector_exposure,
+                    'new_exposure': new_sector_exposure,
+                    'limit': self.max_sector_concentration,
+                    'sector': symbol_sector
+                }
+            else:
+                return {
+                    'risk_level': RiskLevel.LOW,
+                    'current_exposure': sector_exposure,
+                    'new_exposure': new_sector_exposure,
+                    'limit': self.max_sector_concentration,
+                    'sector': symbol_sector
+                }
+
+        except Exception as e:
+            logger.error(f"Concentration risk check failed: {e}")
+            return {'risk_level': RiskLevel.MEDIUM}
+
+    def _assess_correlation_risk(self, signal: TradingSignal, current_positions: Dict[str, Position],
+                                market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess correlation risk with existing positions"""
+        try:
+            high_correlation_count = 0
+            correlations = []
+
+            symbol_sector = self._get_symbol_sector(signal.symbol)
+
+            for position in current_positions.values():
+                position_sector = self._get_symbol_sector(position.symbol)
+
+                # Simplified correlation model based on sector
+                if symbol_sector == position_sector:
+                    correlation = 0.7  # High intra-sector correlation
+                    if correlation > 0.6:
+                        high_correlation_count += 1
+                else:
+                    correlation = 0.2  # Low inter-sector correlation
+
+                correlations.append({
+                    'symbol': position.symbol,
+                    'correlation': correlation
+                })
+
+            return {
+                'high_correlation_count': high_correlation_count,
+                'correlations': correlations,
+                'average_correlation': np.mean([c['correlation'] for c in correlations]) if correlations else 0.0
+            }
+
+        except Exception as e:
+            logger.error(f"Correlation risk assessment failed: {e}")
+            return {'high_correlation_count': 0, 'correlations': [], 'average_correlation': 0.0}
+
+    def _calculate_volatility_adjustment(self, symbol: str, market_data: Dict[str, Any]) -> float:
+        """Calculate position size adjustment based on volatility"""
+        try:
+            symbol_data = market_data.get(symbol, {})
+            volatility = symbol_data.get('volatility', 0.02)
+
+            # Target volatility (2% daily)
+            target_volatility = 0.02
+
+            # Adjustment factor (inverse relationship)
+            adjustment = min(1.5, target_volatility / max(volatility, 0.005))
+
+            return max(0.3, adjustment)  # Cap between 30% and 150%
+
+        except Exception as e:
+            logger.error(f"Volatility adjustment calculation failed: {e}")
+            return 1.0
+
+    def _calculate_overall_risk_score(self, signal: TradingSignal, current_positions: Dict[str, Position],
+                                     portfolio_value: float, market_data: Dict[str, Any]) -> float:
+        """Calculate overall risk score for the trade"""
+        try:
+            risk_score = 0.0
+
+            # Position size risk (0-0.3)
+            size_risk = min(0.3, signal.position_size / self.max_position_size)
+            risk_score += size_risk
+
+            # Volatility risk (0-0.3)
+            symbol_data = market_data.get(signal.symbol, {})
+            volatility = symbol_data.get('volatility', 0.02)
+            vol_risk = min(0.3, volatility / 0.05)  # 5% volatility = max risk
+            risk_score += vol_risk
+
+            # Concentration risk (0-0.2)
+            concentration = self._check_concentration_risk(signal, current_positions, portfolio_value)
+            if concentration['risk_level'] == RiskLevel.HIGH:
+                risk_score += 0.2
+            elif concentration['risk_level'] == RiskLevel.MEDIUM:
+                risk_score += 0.1
+
+            # Correlation risk (0-0.2)
+            correlation = self._assess_correlation_risk(signal, current_positions, market_data)
+            corr_risk = min(0.2, correlation['high_correlation_count'] * 0.05)
+            risk_score += corr_risk
+
+            return min(1.0, risk_score)
+
+        except Exception as e:
+            logger.error(f"Overall risk score calculation failed: {e}")
+            return 0.5
+
+    def _get_symbol_sector(self, symbol: str) -> str:
+        """Get sector for symbol (simplified mapping)"""
+        # Simplified sector mapping
+        tech_symbols = ['AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'NVDA', 'ADBE', 'CRM', 'ORCL']
+        finance_symbols = ['JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'AXP', 'BLK', 'SPGI', 'MMC']
+        healthcare_symbols = ['JNJ', 'PFE', 'UNH', 'ABBV', 'TMO', 'DHR', 'BMY', 'AMGN', 'GILD', 'CVS']
+
+        if symbol in tech_symbols:
+            return 'Technology'
+        elif symbol in finance_symbols:
+            return 'Financials'
+        elif symbol in healthcare_symbols:
+            return 'Healthcare'
+        elif '.PA' in symbol:
+            return 'Europe'
+        elif '.L' in symbol:
+            return 'UK'
+        else:
+            return 'Other'
+
+    async def monitor_portfolio_risk(self, current_positions: Dict[str, Position],
+                                   portfolio_value: float, market_data: Dict[str, Any]) -> List[RiskAlert]:
+        """Real-time portfolio risk monitoring"""
+        alerts = []
+
+        try:
+            # 1. Check portfolio VaR
+            portfolio_returns = self._calculate_portfolio_returns(current_positions, market_data)
+            if len(portfolio_returns) > 0:
+                daily_var = self.var_calculator.calculate_historical_var(portfolio_returns, 0.95, portfolio_value)
+                var_ratio = daily_var / portfolio_value
+
+                if var_ratio > self.max_portfolio_risk:
+                    alerts.append(RiskAlert(
+                        alert_type=AlertType.VAR_BREACH,
+                        risk_level=RiskLevel.HIGH,
+                        message=f"Portfolio VaR ({var_ratio:.1%}) exceeds limit ({self.max_portfolio_risk:.1%})",
+                        timestamp=datetime.now(),
+                        affected_symbols=list(current_positions.keys()),
+                        recommended_action="Reduce position sizes or hedge portfolio",
+                        metadata={'var_ratio': var_ratio, 'var_amount': daily_var}
+                    ))
+
+            # 2. Check individual position sizes
+            for symbol, position in current_positions.items():
+                if abs(position.position_size) > self.max_position_size:
+                    alerts.append(RiskAlert(
+                        alert_type=AlertType.POSITION_SIZE,
+                        risk_level=RiskLevel.HIGH,
+                        message=f"{symbol} position size ({abs(position.position_size):.1%}) exceeds limit",
+                        timestamp=datetime.now(),
+                        affected_symbols=[symbol],
+                        recommended_action=f"Reduce {symbol} position size",
+                        metadata={'current_size': position.position_size, 'limit': self.max_position_size}
+                    ))
+
+            # 3. Check sector concentration
+            sector_exposures = self._calculate_sector_exposures(current_positions)
+            for sector, exposure in sector_exposures.items():
+                if exposure > self.max_sector_concentration:
+                    affected_symbols = [s for s, p in current_positions.items() if self._get_symbol_sector(s) == sector]
+                    alerts.append(RiskAlert(
+                        alert_type=AlertType.PORTFOLIO_CONCENTRATION,
+                        risk_level=RiskLevel.HIGH,
+                        message=f"{sector} sector exposure ({exposure:.1%}) exceeds limit",
+                        timestamp=datetime.now(),
+                        affected_symbols=affected_symbols,
+                        recommended_action=f"Reduce exposure to {sector} sector",
+                        metadata={'current_exposure': exposure, 'limit': self.max_sector_concentration}
+                    ))
+
+            self.active_alerts = alerts
+            return alerts
+
+        except Exception as e:
+            logger.error(f"Portfolio risk monitoring failed: {e}")
+            return []
+
+    def _calculate_portfolio_returns(self, current_positions: Dict[str, Position],
+                                   market_data: Dict[str, Any]) -> pd.Series:
+        """Calculate portfolio returns for VaR calculation"""
+        try:
+            # Simplified return calculation
+            returns = []
+            for position in current_positions.values():
+                symbol_data = market_data.get(position.symbol, {})
+                symbol_returns = symbol_data.get('returns', pd.Series())
+                if len(symbol_returns) > 0:
+                    weighted_returns = symbol_returns * abs(position.position_size)
+                    returns.append(weighted_returns)
+
+            if returns:
+                portfolio_returns = pd.concat(returns, axis=1).sum(axis=1)
+                return portfolio_returns.dropna()
+            else:
+                return pd.Series()
+
+        except Exception as e:
+            logger.error(f"Portfolio returns calculation failed: {e}")
+            return pd.Series()
+
+    def _calculate_sector_exposures(self, current_positions: Dict[str, Position]) -> Dict[str, float]:
+        """Calculate current sector exposures"""
+        sector_exposures = {}
+
+        try:
+            for position in current_positions.values():
+                sector = self._get_symbol_sector(position.symbol)
+                if sector not in sector_exposures:
+                    sector_exposures[sector] = 0.0
+                sector_exposures[sector] += abs(position.position_size)
+
+            return sector_exposures
+
+        except Exception as e:
+            logger.error(f"Sector exposure calculation failed: {e}")
+            return {}
+
+    def get_risk_summary(self) -> Dict[str, Any]:
+        """Get current risk management summary"""
+        return {
+            'risk_limits': {
+                'max_portfolio_risk': self.max_portfolio_risk,
+                'max_position_size': self.max_position_size,
+                'max_sector_concentration': self.max_sector_concentration,
+                'max_drawdown_threshold': self.max_drawdown_threshold
+            },
+            'active_alerts_count': len(self.active_alerts),
+            'monitoring_enabled': True,
+            'last_update': datetime.now().isoformat()
+        }
         try:
             if len(returns) < 10:
                 return portfolio_value * 0.05

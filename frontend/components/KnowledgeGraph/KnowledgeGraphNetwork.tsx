@@ -689,7 +689,7 @@ const KnowledgeGraphNetwork = forwardRef<KnowledgeGraphNetworkRef, KnowledgeGrap
           networkRef.current = null
         }
       }
-    }, [hasInitialized]) // Depend on hasInitialized to prevent multiple calls
+    }, []) // Empty dependency array - run only once
 
     useEffect(() => {
       if (networkRef.current) {

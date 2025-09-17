@@ -52,19 +52,22 @@ class MultiTimeframeAnalyzer:
         
     async def analyze_multi_timeframe(self, symbols: List[str]) -> Dict[str, Dict[str, Any]]:
         """
-        Perform multi-timeframe analysis for given symbols
+        Perform multi-timeframe analysis for given symbols with improved error handling
         """
         results = {}
-        
-        for symbol in symbols:
+
+        # Pre-filter known problematic symbols
+        valid_symbols = await self._filter_valid_symbols(symbols)
+
+        for symbol in valid_symbols:
             try:
                 logger.info(f"Starting multi-timeframe analysis for {symbol}")
-                
+
                 # Collect data for all timeframes
                 timeframe_data = await self._collect_timeframe_data(symbol)
-                
+
                 if not timeframe_data:
-                    logger.warning(f"No data collected for {symbol}")
+                    logger.warning(f"No data collected for {symbol}, skipping analysis")
                     continue
                 
                 # Calculate technical indicators for each timeframe
@@ -89,39 +92,106 @@ class MultiTimeframeAnalyzer:
                 logger.info(f"Completed multi-timeframe analysis for {symbol}: Score={final_analysis['composite_score']:.2f}, Confidence={confidence:.2f}")
                 
             except Exception as e:
-                logger.error(f"Multi-timeframe analysis failed for {symbol}: {e}")
-                results[symbol] = self._get_neutral_analysis()
+                error_msg = str(e).lower()
+                if 'possibly delisted' in error_msg or 'no price data found' in error_msg:
+                    logger.warning(f"Symbol {symbol} appears to be delisted, skipping")
+                else:
+                    logger.error(f"Multi-timeframe analysis failed for {symbol}: {e}")
+                    results[symbol] = self._get_neutral_analysis()
         
         return results
-    
+
+    async def _filter_valid_symbols(self, symbols: List[str]) -> List[str]:
+        """
+        Pre-filter symbols to remove obviously invalid ones
+        """
+        valid_symbols = []
+
+        # Known problematic symbols that should be skipped
+        skip_patterns = [
+            '.', '--', '???', 'N/A', '',  # Invalid formats
+        ]
+
+        # Known delisted or problematic symbols (can be expanded)
+        known_delisted = {
+            # Add more as discovered
+        }
+
+        for symbol in symbols:
+            if not symbol or any(pattern in symbol for pattern in skip_patterns):
+                logger.debug(f"Skipping invalid symbol format: {symbol}")
+                continue
+
+            # Skip known delisted symbols
+            if symbol in known_delisted:
+                logger.debug(f"Skipping known problematic symbol: {symbol}")
+                continue
+
+            valid_symbols.append(symbol)
+
+        logger.info(f"Filtered {len(symbols)} symbols to {len(valid_symbols)} valid symbols")
+        return valid_symbols
+
     async def _collect_timeframe_data(self, symbol: str) -> Dict[str, pd.DataFrame]:
         """
-        Collect price data for all timeframes
+        Collect price data for all timeframes with robust error handling
         """
         timeframe_data = {}
-        
+
+        # Try to get basic info first to validate symbol
+        try:
+            ticker = yf.Ticker(symbol)
+            info = await asyncio.to_thread(ticker.info)
+            if not info or info.get('regularMarketPrice') is None:
+                logger.warning(f"Symbol {symbol} appears to be invalid or delisted")
+                return timeframe_data
+        except Exception as e:
+            logger.warning(f"Cannot validate symbol {symbol}: {e}")
+            # Continue anyway, but be more careful
+
         for tf_name, tf_config in self.timeframes.items():
             try:
                 ticker = yf.Ticker(symbol)
-                
-                # Get historical data
-                data = await asyncio.to_thread(
-                    ticker.history,
-                    period=tf_config['period'],
-                    interval=tf_config['interval'],
-                    auto_adjust=True,
-                    prepost=True
-                )
-                
-                if not data.empty:
-                    timeframe_data[tf_name] = data
-                    logger.debug(f"Collected {len(data)} bars for {symbol} on {tf_name} timeframe")
+
+                # Get historical data with retries
+                data = None
+                for attempt in range(2):
+                    try:
+                        data = await asyncio.to_thread(
+                            ticker.history,
+                            period=tf_config['period'],
+                            interval=tf_config['interval'],
+                            auto_adjust=True,
+                            prepost=False,  # Disable premarket/afterhours for better reliability
+                            timeout=30
+                        )
+                        break
+                    except Exception as retry_e:
+                        if attempt == 0:
+                            logger.debug(f"Retry {attempt + 1} for {symbol} {tf_name}: {retry_e}")
+                            await asyncio.sleep(1)
+                        else:
+                            raise retry_e
+
+                if data is not None and not data.empty and len(data) > 10:
+                    # Validate data quality
+                    if data['Close'].isna().sum() / len(data) < 0.5:  # Less than 50% NaN
+                        timeframe_data[tf_name] = data
+                        logger.debug(f"Collected {len(data)} bars for {symbol} on {tf_name} timeframe")
+                    else:
+                        logger.warning(f"Poor data quality for {symbol} on {tf_name} timeframe")
                 else:
                     logger.warning(f"No data for {symbol} on {tf_name} timeframe")
-                    
+
             except Exception as e:
-                logger.error(f"Failed to collect {tf_name} data for {symbol}: {e}")
-        
+                error_msg = str(e).lower()
+                if 'possibly delisted' in error_msg or 'no price data found' in error_msg:
+                    logger.warning(f"Symbol {symbol} appears to be delisted or suspended")
+                    # Try alternative data sources or skip this symbol
+                    break  # Skip other timeframes for this symbol
+                else:
+                    logger.error(f"Failed to collect {tf_name} data for {symbol}: {e}")
+
         return timeframe_data
     
     def _calculate_technical_indicators(self, timeframe_data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:

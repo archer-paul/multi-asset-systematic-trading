@@ -336,9 +336,26 @@ class TradingBotOrchestrator:
         return predictions
 
     async def _get_cached_prediction(self, symbol: str, market_data: pd.DataFrame, news_data: List[Dict], social_data: Dict, multi_timeframe_data: Dict, region: str) -> Dict[str, Any]:
-        # This method implementation seems to have a bug in its logic, as it doesn't use the cached models for prediction.
-        # It falls back to the ensemble predictor. This should be reviewed.
-        self.logger.debug(f"No cached models for {symbol}, using ensemble predictor")
+        """
+        Generates a prediction for a symbol, attempting to use a cached, symbol-specific model first,
+        before falling back to the general ensemble predictor.
+        """
+        # Attempt to use a cached traditional model first
+        cached_trad_model_info = self.trained_models_cache['traditional_ml'].get(symbol)
+        if cached_trad_model_info and cached_trad_model_info.get('model'):
+            self.logger.debug(f"Using cached traditional ML model for {symbol}")
+            cached_model = cached_trad_model_info['model']
+            return await cached_model.predict(data=market_data)
+
+        # Fallback to a cached transformer model
+        cached_transformer_model_info = self.trained_models_cache['transformer_ml'].get(symbol)
+        if cached_transformer_model_info and cached_transformer_model_info.get('model'):
+            self.logger.debug(f"Using cached transformer ML model for {symbol}")
+            cached_model = cached_transformer_model_info['model']
+            return await cached_model.predict(data=market_data)
+
+        # Fallback to the general ensemble predictor if no valid cached model is found
+        self.logger.debug(f"No valid cached model for {symbol}, using general ensemble predictor.")
         return await self.ensemble_predictor.predict(
             symbol=symbol, market_data=market_data, news_data=news_data,
             social_data=social_data, multi_timeframe_data=multi_timeframe_data, region=region

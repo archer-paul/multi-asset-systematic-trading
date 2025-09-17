@@ -53,13 +53,18 @@ class EmergingStockDetector:
                           'management team', 'vision', 'strategy', 'transformation']
         }
     
-    async def scan_emerging_opportunities(self, news_data: List[Dict], 
+    async def scan_emerging_opportunities(self, news_data: List[Dict],
                                         market_data: Dict) -> List[EmergingSignal]:
         """Analyse les données pour détecter les opportunités émergentes"""
-        
+
         logger.info("Scanning for emerging stock opportunities...")
         emerging_signals = []
-        
+
+        # Si pas de données news, créer une analyse alternative
+        if not news_data or len(news_data) == 0:
+            logger.info("No news data available, using alternative screening method")
+            return await self._screen_by_technical_fundamentals()
+
         # Analyser les mentions d'entreprises dans les news
         company_mentions = await self._extract_company_mentions(news_data)
         
@@ -433,14 +438,10 @@ class EmergingStockDetector:
     
     async def get_emerging_watchlist(self, top_n: int = 20) -> List[Dict]:
         """Retourne une liste de surveillance des actions émergentes"""
-        
+
         try:
-            # Simuler pour l'instant - dans un vrai système, 
-            # on analyserait les news récentes
-            sample_news = []  # À remplacer par de vraies données
-            sample_market = {}  # À remplacer par de vraies données
-            
-            signals = await self.scan_emerging_opportunities(sample_news, sample_market)
+            # Utiliser la méthode de screening alternatif si pas de news
+            signals = await self._screen_by_technical_fundamentals()
             
             # Convertir en format simple pour la watchlist
             watchlist = []
@@ -461,3 +462,151 @@ class EmergingStockDetector:
         except Exception as e:
             logger.error(f"Error generating emerging watchlist: {e}")
             return []
+
+    async def _screen_by_technical_fundamentals(self) -> List[EmergingSignal]:
+        """Screening alternatif basé sur l'analyse technique et fondamentale"""
+
+        logger.info("Using technical and fundamental screening for emerging opportunities")
+        emerging_signals = []
+
+        # Utiliser la liste de symboles du config
+        symbols_to_screen = getattr(self.config, 'ALL_SYMBOLS', [])[:50]  # Limiter pour la performance
+
+        for symbol in symbols_to_screen:
+            try:
+                # Analyse rapide du potentiel
+                financial_data = await self._get_financial_metrics(symbol)
+                if not financial_data:
+                    continue
+
+                # Calculer un score basé sur les métriques
+                score = await self._calculate_fundamental_score(financial_data)
+
+                if score > 65:  # Seuil pour les opportunités émergentes
+                    # Générer un signal
+                    signal = EmergingSignal(
+                        symbol=symbol,
+                        company_name=financial_data.get('symbol', symbol),
+                        score=score,
+                        growth_potential=self._determine_growth_potential(financial_data),
+                        timeframe='medium',
+                        key_drivers=self._extract_key_drivers(financial_data),
+                        risk_factors=['Market risk', 'Sector risk', 'Company specific risk'],
+                        market_cap=financial_data.get('market_cap', 0),
+                        sector=financial_data.get('sector', 'Unknown'),
+                        reasoning=f"Strong technical and fundamental metrics with score {score:.1f}",
+                        confidence=min(0.9, score / 100),
+                        timestamp=datetime.now()
+                    )
+                    emerging_signals.append(signal)
+
+            except Exception as e:
+                logger.debug(f"Error screening {symbol}: {e}")
+                continue
+
+        # Trier par score
+        emerging_signals.sort(key=lambda x: x.score, reverse=True)
+
+        logger.info(f"Found {len(emerging_signals)} emerging opportunities via technical screening")
+        return emerging_signals[:20]  # Top 20
+
+    async def _calculate_fundamental_score(self, financial_data: Dict) -> float:
+        """Score basé sur les fondamentaux et techniques"""
+
+        score = 50.0  # Score de base
+
+        # Performance récente (20 points max)
+        returns_3m = financial_data.get('returns_3m', 0)
+        if returns_3m > 30:
+            score += 20
+        elif returns_3m > 15:
+            score += 15
+        elif returns_3m > 5:
+            score += 10
+        elif returns_3m < -20:
+            score -= 10
+
+        # Croissance fundamentale (15 points max)
+        revenue_growth = financial_data.get('revenue_growth', 0) or 0
+        earnings_growth = financial_data.get('earnings_growth', 0) or 0
+
+        if revenue_growth > 0.25:  # 25%+
+            score += 8
+        elif revenue_growth > 0.15:
+            score += 5
+        elif revenue_growth > 0.05:
+            score += 2
+
+        if earnings_growth > 0.25:
+            score += 7
+        elif earnings_growth > 0.15:
+            score += 4
+        elif earnings_growth > 0.05:
+            score += 2
+
+        # Valorisation (10 points max)
+        pe_ratio = financial_data.get('pe_ratio', 0) or 0
+        if 10 < pe_ratio < 25:  # PE raisonnable
+            score += 5
+        elif pe_ratio < 10 and pe_ratio > 0:
+            score += 8  # Potentiellement sous-valorisé
+        elif pe_ratio > 50:
+            score -= 5  # Surévalué
+
+        # Tendance volume (5 points max)
+        volume_trend = financial_data.get('volume_trend', 0)
+        if volume_trend > 50:
+            score += 5
+        elif volume_trend > 20:
+            score += 3
+
+        # Position dans la range 52 semaines (10 points max)
+        price_to_52w_high = financial_data.get('price_to_52w_high', 0.5)
+        if price_to_52w_high > 0.9:  # Près des hauts
+            score += 10
+        elif price_to_52w_high > 0.7:
+            score += 7
+        elif price_to_52w_high < 0.3:  # Trop bas, potentiel problème
+            score -= 5
+
+        return min(100, max(0, score))
+
+    def _determine_growth_potential(self, financial_data: Dict) -> str:
+        """Détermine le potentiel de croissance"""
+
+        returns_3m = financial_data.get('returns_3m', 0)
+        revenue_growth = financial_data.get('revenue_growth', 0) or 0
+        earnings_growth = financial_data.get('earnings_growth', 0) or 0
+
+        if (returns_3m > 20 and revenue_growth > 0.2) or earnings_growth > 0.3:
+            return 'high'
+        elif (returns_3m > 10 and revenue_growth > 0.1) or earnings_growth > 0.15:
+            return 'medium'
+        else:
+            return 'low'
+
+    def _extract_key_drivers(self, financial_data: Dict) -> List[str]:
+        """Extrait les facteurs clés de croissance"""
+
+        drivers = []
+
+        if financial_data.get('returns_3m', 0) > 15:
+            drivers.append('Strong recent performance')
+
+        if financial_data.get('revenue_growth', 0) > 0.15:
+            drivers.append('Revenue growth acceleration')
+
+        if financial_data.get('earnings_growth', 0) > 0.2:
+            drivers.append('Earnings expansion')
+
+        if financial_data.get('volume_trend', 0) > 30:
+            drivers.append('Increased institutional interest')
+
+        sector = financial_data.get('sector', '')
+        if sector in ['Technology', 'Healthcare', 'Consumer Discretionary']:
+            drivers.append(f'Growth sector exposure ({sector})')
+
+        if not drivers:
+            drivers = ['Technical momentum', 'Market positioning']
+
+        return drivers[:5]

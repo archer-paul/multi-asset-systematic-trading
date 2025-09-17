@@ -34,33 +34,7 @@ import {
   Line,
 } from 'recharts'
 
-// Mock data for ML models
-const modelPerformanceData = [
-  { name: 'XGBoost', accuracy: 0.872, precision: 0.845, recall: 0.891, f1Score: 0.867, sharpe: 2.34 },
-  { name: 'AdaBoost', accuracy: 0.834, precision: 0.821, recall: 0.847, f1Score: 0.834, sharpe: 1.98 },
-  { name: 'Transformer', accuracy: 0.889, precision: 0.876, recall: 0.902, f1Score: 0.889, sharpe: 2.67 },
-  { name: 'LSTM', accuracy: 0.801, precision: 0.798, recall: 0.804, f1Score: 0.801, sharpe: 1.76 },
-  { name: 'Random Forest', accuracy: 0.856, precision: 0.841, recall: 0.871, f1Score: 0.856, sharpe: 2.12 },
-]
-
-const ensembleWeights = [
-  { name: 'XGBoost', value: 0.28, color: '#3b82f6' },
-  { name: 'Transformer', value: 0.35, color: '#10b981' },
-  { name: 'AdaBoost', value: 0.15, color: '#f59e0b' },
-  { name: 'LSTM', value: 0.12, color: '#ef4444' },
-  { name: 'Random Forest', value: 0.10, color: '#8b5cf6' },
-]
-
-const predictionConfidence = [
-  { hour: '09:00', confidence: 0.82, predictions: 15 },
-  { hour: '10:00', confidence: 0.89, predictions: 23 },
-  { hour: '11:00', confidence: 0.76, predictions: 18 },
-  { hour: '12:00', confidence: 0.91, predictions: 31 },
-  { hour: '13:00', confidence: 0.85, predictions: 27 },
-  { hour: '14:00', confidence: 0.78, predictions: 21 },
-  { hour: '15:00', confidence: 0.93, predictions: 34 },
-  { hour: '16:00', confidence: 0.87, predictions: 28 },
-]
+// Data is now fetched from the API via the useEffect hook.
 
 export default function MachineLearningPage() {
   const [loading, setLoading] = useState(true)

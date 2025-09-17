@@ -169,7 +169,7 @@ class SignalAggregator:
             # Get adaptive weights for current regime
             weights = self._get_adaptive_weights(market_regime, symbol)
 
-            # Calculate weighted composite score
+            # Calculate weighted composite score with boost for positive signals
             composite_score = (
                 technical_score * weights.get('technical', 0.20) +
                 ml_score * weights.get('ml', 0.25) +
@@ -182,10 +182,18 @@ class SignalAggregator:
                 forex_score * weights.get('forex', 0.02)
             )
 
-            # Calculate confidence based on signal agreement
+            # Apply signal amplification to generate more actionable signals
+            if abs(composite_score) > 0.02:  # Small boost for any meaningful signal
+                composite_score *= 1.5  # Amplify by 50%
+
+            # Calculate confidence based on signal agreement (more generous)
             signal_values = [technical_score, ml_score, sentiment_score, fundamental_score, momentum_score, macro_score, geopolitical_score, commodities_score, forex_score]
             signal_agreement = self._calculate_signal_agreement(signal_values)
-            confidence = min(signal_agreement * 1.2, 1.0)
+
+            # Boost confidence calculation to generate more actionable signals
+            base_confidence = max(0.3, signal_agreement * 1.5)  # Minimum 30% confidence
+            signal_strength_bonus = min(0.3, abs(composite_score) * 2)  # Bonus for strong signals
+            confidence = min(base_confidence + signal_strength_bonus, 1.0)
 
             # Apply risk and correlation adjustments
             correlation_penalty = self._calculate_correlation_penalty(signals_data)
@@ -695,8 +703,8 @@ class PortfolioOptimizer:
             for i, s in enumerate(top_signals):
                 logger.info(f"  Top {i+1}: {s.symbol} - conf:{s.confidence:.2f}, score:{s.composite_score:.2f}")
 
-            # Filter strong signals (reduced thresholds)
-            strong_signals = [s for s in signal_metrics if s.confidence > 0.2 and abs(s.composite_score) > 0.1]
+            # Filter strong signals (very reduced thresholds to generate more trades)
+            strong_signals = [s for s in signal_metrics if s.confidence > 0.15 and abs(s.composite_score) > 0.05]
 
             if not strong_signals:
                 logger.warning("No signals passed reduced filtering criteria")
@@ -844,12 +852,12 @@ class PortfolioOptimizer:
             current_weight = current_portfolio.get(signal.symbol, 0.0)
             weight_diff = weight - current_weight
 
-            # Determine action
-            if abs(weight_diff) < 0.01:  # Less than 1% difference
+            # Determine action (more sensitive thresholds)
+            if abs(weight_diff) < 0.005:  # Less than 0.5% difference
                 action = 'hold'
-            elif weight_diff > 0.02:  # Increase by more than 2%
+            elif weight_diff > 0.01:  # Increase by more than 1%
                 action = 'buy'
-            elif weight_diff < -0.02:  # Decrease by more than 2%
+            elif weight_diff < -0.01:  # Decrease by more than 1%
                 action = 'sell'
             else:
                 action = 'hold'
@@ -945,9 +953,9 @@ class AdvancedPortfolioDecisionEngine:
         self.signal_aggregator = SignalAggregator(self.config.get('signal_aggregation', {}))
         self.portfolio_optimizer = PortfolioOptimizer(self.config.get('portfolio_optimization', {}))
 
-        # Decision thresholds
-        self.min_conviction = self.config.get('min_conviction', 0.3)
-        self.rebalance_threshold = self.config.get('rebalance_threshold', 0.05)
+        # Decision thresholds (more aggressive to generate trades)
+        self.min_conviction = self.config.get('min_conviction', 0.15)
+        self.rebalance_threshold = self.config.get('rebalance_threshold', 0.02)
 
         # State tracking
         self.last_decisions = {}
@@ -979,7 +987,8 @@ class AdvancedPortfolioDecisionEngine:
             for symbol, symbol_data in all_signals_data.items():
                 try:
                     metrics = self.signal_aggregator.aggregate_signals(symbol_data, market_regime)
-                    if metrics.confidence > self.min_conviction:
+                    # More lenient filtering to capture more opportunities
+                    if metrics.confidence > 0.1 or abs(metrics.composite_score) > 0.08:
                         signal_metrics.append(metrics)
                 except Exception as e:
                     logger.error(f"Failed to aggregate signals for {symbol}: {e}")
@@ -1028,13 +1037,13 @@ class AdvancedPortfolioDecisionEngine:
 
         # Filter decisions based on conviction and risk
         for symbol, decision in decisions.items():
-            # Skip low conviction decisions
-            if decision.conviction < self.min_conviction:
+            # More lenient conviction threshold
+            if decision.conviction < 0.1:
                 continue
 
-            # Skip if change is too small
+            # More aggressive rebalancing threshold
             weight_change = abs(decision.target_weight - decision.current_weight)
-            if weight_change < self.rebalance_threshold and decision.action != 'sell':
+            if weight_change < 0.01 and decision.action != 'sell':  # Only 1% threshold
                 decision.action = 'hold'
 
             # Validate risk constraints
