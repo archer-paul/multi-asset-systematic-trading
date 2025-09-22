@@ -22,13 +22,40 @@ class SentimentAnalyzer:
     
     def _initialize_gemini(self):
         """Initialize Gemini AI client"""
-        if self.config and hasattr(self.config, 'gemini_api_key') and self.config.gemini_api_key:
-            try:
-                genai.configure(api_key=self.config.gemini_api_key)
-                self.gemini_client = genai.GenerativeModel('gemini-1.5-flash')
-                logger.info("Gemini AI client initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize Gemini AI: {e}")
+        try:
+            if not self.config:
+                logger.warning("No configuration provided for Gemini AI")
+                return
+
+            if not hasattr(self.config, 'gemini_api_key'):
+                logger.warning("GEMINI_API_KEY not found in configuration")
+                return
+
+            if not self.config.gemini_api_key:
+                logger.warning("GEMINI_API_KEY is empty - sentiment analysis will use fallback method")
+                return
+
+            # Log partial API key for verification (first 8 chars + ****)
+            api_key_preview = f"{self.config.gemini_api_key[:8]}****" if len(self.config.gemini_api_key) > 8 else "****"
+            logger.info(f"Initializing Gemini AI with API key: {api_key_preview}")
+
+            genai.configure(api_key=self.config.gemini_api_key)
+            self.gemini_client = genai.GenerativeModel('gemini-1.5-flash')
+
+            logger.info("Gemini AI client initialized successfully")
+            logger.info("Sentiment analysis will use Gemini AI for enhanced accuracy")
+
+            # Test basic functionality during initialization
+            test_response = self.gemini_client.generate_content("Test: respond with 'OK'")
+            if test_response and test_response.text:
+                logger.info(f"Gemini AI test successful: {test_response.text.strip()}")
+            else:
+                logger.warning("Gemini AI test failed - may have connectivity issues")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini AI: {e}")
+            logger.warning("Sentiment analysis will use keyword-based fallback method")
+            self.gemini_client = None
     
     async def initialize(self):
         """Initialize sentiment analyzer"""
@@ -46,22 +73,20 @@ class SentimentAnalyzer:
         except Exception as e:
             logger.error(f"SentimentAnalyzer cleanup failed: {e}")
     
-    async def analyze_financial_sentiment(self, text: str, symbols: List[str] = None, 
+    async def analyze_financial_sentiment(self, text: str, symbols: List[str] = None,
                                          company: str = None, region: str = None) -> Dict[str, Any]:
         """Analyze financial sentiment from text with focus on specific symbols, company and region"""
+        start_time = datetime.now()
+
         try:
             if not self.gemini_client:
-                return {
-                    'sentiment_score': 0.0,
-                    'confidence': 0.5,
-                    'market_impact': 0.5,
-                    'urgency': 0.5,
-                    'key_themes': [],
-                    'risk_factors': [],
-                    'timeframe': 'short-term',
-                    'sector_impact': 0.5,
-                    'reasoning': 'No AI client available'
-                }
+                logger.warning(f"Gemini client not available for {company or 'general'} - using FALLBACK sentiment analysis")
+                result = self._fallback_sentiment_analysis(text, symbols, company, region)
+                elapsed = (datetime.now() - start_time).total_seconds()
+                logger.info(f"FALLBACK sentiment analysis completed in {elapsed:.2f}s for {company or 'general'}")
+                return result
+
+            logger.info(f"Starting GEMINI AI sentiment analysis for: {company or 'general'} - Text length: {len(text)} chars")
             
             # Create comprehensive financial sentiment prompt
             focus_text = ""
@@ -90,13 +115,18 @@ class SentimentAnalyzer:
             Reasoning: [brief explanation]
             """
             
+            logger.debug(f"Sending prompt to Gemini AI: {prompt[:200]}...")
+
             response = await asyncio.to_thread(
                 self.gemini_client.generate_content,
                 prompt
             )
-            
+
             # Parse response
             response_text = response.text
+            logger.info(f"Gemini AI response received for {company or 'general'}: {len(response_text)} chars")
+            logger.debug(f"Full Gemini response: {response_text[:500]}...")
+
             sentiment_score = 0.0
             confidence = 0.5
             market_impact = 0.5
@@ -166,21 +196,84 @@ class SentimentAnalyzer:
                 'sector_impact': max(0, min(1, sector_impact)),
                 'reasoning': reasoning
             }
-            
+
+            logger.info(f"Sentiment analysis for {company or 'general'}: Score={sentiment_score:.2f}, Confidence={confidence:.2f}")
+            return result
+
         except Exception as e:
-            logger.error(f"Financial sentiment analysis failed: {e}")
+            logger.error(f"Gemini sentiment analysis failed for {company or 'general'}: {str(e)}")
+            logger.warning("Falling back to basic sentiment analysis")
+            return self._fallback_sentiment_analysis(text, symbols, company, region)
+
+    def _fallback_sentiment_analysis(self, text: str, symbols: List[str] = None,
+                                   company: str = None, region: str = None) -> Dict[str, Any]:
+        """Fallback sentiment analysis when Gemini is not available"""
+        try:
+            # Simple keyword-based sentiment analysis
+            positive_words = ['positive', 'good', 'strong', 'growth', 'increase', 'profit', 'gain', 'buy', 'bullish', 'up', 'rise', 'high', 'success', 'beat', 'exceed', 'outperform']
+            negative_words = ['negative', 'bad', 'weak', 'decline', 'decrease', 'loss', 'sell', 'bearish', 'down', 'fall', 'low', 'failure', 'miss', 'underperform', 'concern', 'risk']
+
+            text_lower = text.lower()
+
+            positive_count = sum(1 for word in positive_words if word in text_lower)
+            negative_count = sum(1 for word in negative_words if word in text_lower)
+
+            total_words = len(text.split())
+            sentiment_strength = (positive_count - negative_count) / max(total_words, 1)
+
+            # Normalize to -1 to 1 range
+            sentiment_score = max(-1, min(1, sentiment_strength * 10))
+
+            # Calculate confidence based on sentiment word density
+            confidence = min(0.8, (positive_count + negative_count) / max(total_words, 1) * 20)
+            confidence = max(0.3, confidence)  # Minimum confidence
+
+            # Determine themes based on keywords
+            key_themes = []
+            if 'earnings' in text_lower or 'profit' in text_lower:
+                key_themes.append('Earnings')
+            if 'revenue' in text_lower or 'sales' in text_lower:
+                key_themes.append('Revenue')
+            if 'growth' in text_lower:
+                key_themes.append('Growth')
+            if 'market' in text_lower:
+                key_themes.append('Market')
+
+            # Basic risk factors
+            risk_factors = []
+            if negative_count > positive_count:
+                risk_factors.append('Negative sentiment')
+            if 'risk' in text_lower or 'concern' in text_lower:
+                risk_factors.append('Risk concerns')
+
+            logger.debug(f"Fallback sentiment analysis: {sentiment_score:.2f} (pos:{positive_count}, neg:{negative_count})")
+
+            return {
+                'sentiment_score': sentiment_score,
+                'confidence': confidence,
+                'market_impact': abs(sentiment_score) * confidence,
+                'urgency': 0.5,
+                'key_themes': key_themes if key_themes else ['General Market'],
+                'risk_factors': risk_factors if risk_factors else ['Standard Market Risk'],
+                'timeframe': 'short-term',
+                'sector_impact': abs(sentiment_score) * 0.7,
+                'reasoning': f'Keyword-based analysis: {positive_count} positive, {negative_count} negative terms'
+            }
+
+        except Exception as e:
+            logger.error(f"Fallback sentiment analysis failed: {e}")
             return {
                 'sentiment_score': 0.0,
-                'confidence': 0.5,
+                'confidence': 0.3,
                 'market_impact': 0.5,
                 'urgency': 0.5,
-                'key_themes': [],
-                'risk_factors': [],
+                'key_themes': ['Unknown'],
+                'risk_factors': ['Analysis Error'],
                 'timeframe': 'short-term',
                 'sector_impact': 0.5,
-                'reasoning': f'Analysis failed: {str(e)}'
+                'reasoning': f'Fallback analysis failed: {str(e)}'
             }
-    
+
     async def analyze_text(self, text: str) -> float:
         """Simple text sentiment analysis returning just a score"""
         try:

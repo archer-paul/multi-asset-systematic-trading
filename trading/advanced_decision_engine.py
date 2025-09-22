@@ -807,39 +807,56 @@ class PortfolioOptimizer:
             return expected_returns, cov_matrix
 
     def _optimize_weights(self, expected_returns: np.ndarray, cov_matrix: np.ndarray) -> np.ndarray:
-        """Optimize portfolio weights using mean-variance optimization"""
+        """Optimize portfolio weights using robust mean-variance optimization"""
         try:
             n_assets = len(expected_returns)
 
-            # Objective function: maximize utility (return - risk penalty)
-            def objective(weights):
-                portfolio_return = np.dot(weights, expected_returns)
-                portfolio_variance = np.dot(weights, np.dot(cov_matrix, weights))
-                # Risk aversion parameter
-                return -(portfolio_return - 2.0 * portfolio_variance)  # Minimize negative utility
+            # Input validation
+            if n_assets == 0:
+                logger.warning("No assets to optimize")
+                return np.array([])
 
-            # Constraints
-            constraints = [
-                {'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0},  # Weights sum to 1
-            ]
+            if n_assets == 1:
+                logger.info("Single asset portfolio - using full allocation")
+                return np.array([1.0])
 
-            # Bounds for each weight
-            bounds = [(self.min_weight, self.max_weight) for _ in range(n_assets)]
-
-            # Initial guess (equal weights)
-            x0 = np.ones(n_assets) / n_assets
-
-            # Optimize
-            result = minimize(objective, x0, method='SLSQP', bounds=bounds, constraints=constraints)
-
-            if result.success:
-                return result.x
-            else:
-                logger.warning("Portfolio optimization failed, using equal weights")
+            # Validate expected returns
+            if np.any(np.isnan(expected_returns)) or np.any(np.isinf(expected_returns)):
+                logger.warning("Invalid expected returns, using equal weights")
                 return np.ones(n_assets) / n_assets
 
+            # Validate and regularize covariance matrix
+            cov_matrix = self._regularize_covariance_matrix(cov_matrix)
+
+            # Try multiple optimization methods in order of preference
+            methods = ['risk_parity', 'mean_variance', 'equal_weight']
+
+            for method in methods:
+                try:
+                    if method == 'risk_parity':
+                        weights = self._risk_parity_optimization(cov_matrix)
+                    elif method == 'mean_variance':
+                        weights = self._mean_variance_optimization(expected_returns, cov_matrix)
+                    else:  # equal_weight
+                        weights = np.ones(n_assets) / n_assets
+
+                    # Validate weights
+                    if self._validate_weights(weights):
+                        logger.info(f"Portfolio optimization successful using {method} method")
+                        return weights
+                    else:
+                        logger.warning(f"{method} optimization produced invalid weights")
+
+                except Exception as method_error:
+                    logger.warning(f"{method} optimization failed: {method_error}")
+                    continue
+
+            # Fallback to equal weights
+            logger.warning("All optimization methods failed, using equal weights")
+            return np.ones(n_assets) / n_assets
+
         except Exception as e:
-            logger.error(f"Weight optimization failed: {e}")
+            logger.error(f"Portfolio optimization completely failed: {e}")
             return np.ones(len(expected_returns)) / len(expected_returns)
 
     def _generate_decisions(self, optimal_weights: np.ndarray,
@@ -937,6 +954,145 @@ class PortfolioOptimizer:
             reasoning_parts.append(f"suggesting to {direction} position significantly")
 
         return "; ".join(reasoning_parts).capitalize() + "."
+
+    def _regularize_covariance_matrix(self, cov_matrix: np.ndarray) -> np.ndarray:
+        """Regularize covariance matrix to ensure numerical stability"""
+        try:
+            # Check for NaN/Inf values
+            if np.any(np.isnan(cov_matrix)) or np.any(np.isinf(cov_matrix)):
+                logger.warning("Invalid covariance matrix detected, using identity matrix")
+                return np.eye(cov_matrix.shape[0]) * 0.04  # 4% volatility assumption
+
+            # Ensure symmetry
+            cov_matrix = (cov_matrix + cov_matrix.T) / 2
+
+            # Check positive definiteness
+            eigenvals = np.linalg.eigvals(cov_matrix)
+            if np.any(eigenvals <= 0):
+                logger.debug("Covariance matrix not positive definite, applying regularization")
+                # Add small value to diagonal for regularization
+                regularization = max(0.001, -np.min(eigenvals) + 0.001)
+                cov_matrix += regularization * np.eye(cov_matrix.shape[0])
+
+            # Check condition number
+            cond_num = np.linalg.cond(cov_matrix)
+            if cond_num > 1e12:
+                logger.debug(f"High condition number ({cond_num:.2e}), applying stronger regularization")
+                cov_matrix += 0.01 * np.eye(cov_matrix.shape[0])
+
+            return cov_matrix
+
+        except Exception as e:
+            logger.error(f"Covariance regularization failed: {e}")
+            n = cov_matrix.shape[0] if len(cov_matrix.shape) > 0 else 1
+            return np.eye(n) * 0.04
+
+    def _risk_parity_optimization(self, cov_matrix: np.ndarray) -> np.ndarray:
+        """Risk parity optimization - equal risk contribution"""
+        n_assets = cov_matrix.shape[0]
+
+        # Initial guess
+        x0 = np.ones(n_assets) / n_assets
+
+        def risk_parity_objective(weights):
+            # Portfolio volatility
+            portfolio_vol = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
+
+            # Marginal risk contributions
+            marginal_contrib = np.dot(cov_matrix, weights) / portfolio_vol
+
+            # Risk contributions
+            risk_contrib = weights * marginal_contrib
+
+            # Target equal risk contribution
+            target_contrib = portfolio_vol / n_assets
+
+            # Minimize deviation from equal risk contribution
+            return np.sum((risk_contrib - target_contrib) ** 2)
+
+        # Constraints
+        constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0}]
+        bounds = [(0.001, 0.5) for _ in range(n_assets)]  # Relaxed bounds
+
+        result = minimize(risk_parity_objective, x0, method='SLSQP',
+                         bounds=bounds, constraints=constraints,
+                         options={'maxiter': 500, 'ftol': 1e-9})
+
+        if result.success:
+            return result.x
+        else:
+            raise ValueError(f"Risk parity optimization failed: {result.message}")
+
+    def _mean_variance_optimization(self, expected_returns: np.ndarray, cov_matrix: np.ndarray) -> np.ndarray:
+        """Traditional mean-variance optimization with relaxed constraints"""
+        n_assets = len(expected_returns)
+
+        def objective(weights):
+            portfolio_return = np.dot(weights, expected_returns)
+            portfolio_variance = np.dot(weights, np.dot(cov_matrix, weights))
+            # Reduced risk aversion for more aggressive allocation
+            return -(portfolio_return - 1.0 * portfolio_variance)
+
+        # Relaxed constraints
+        constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0}]
+
+        # More flexible bounds
+        min_weight = max(0.001, 1.0 / (n_assets * 2))  # Dynamic minimum
+        max_weight = min(0.3, 3.0 / n_assets)  # Dynamic maximum
+        bounds = [(min_weight, max_weight) for _ in range(n_assets)]
+
+        # Better initial guess based on expected returns
+        if np.std(expected_returns) > 0:
+            # Weight by relative expected returns
+            positive_returns = np.maximum(expected_returns, 0)
+            if np.sum(positive_returns) > 0:
+                x0 = positive_returns / np.sum(positive_returns)
+            else:
+                x0 = np.ones(n_assets) / n_assets
+        else:
+            x0 = np.ones(n_assets) / n_assets
+
+        # Multiple optimization attempts with different methods
+        methods = ['SLSQP', 'trust-constr']
+
+        for method in methods:
+            try:
+                result = minimize(objective, x0, method=method, bounds=bounds,
+                                constraints=constraints, options={'maxiter': 1000})
+
+                if result.success and self._validate_weights(result.x):
+                    return result.x
+
+            except Exception as e:
+                logger.debug(f"Method {method} failed: {e}")
+                continue
+
+        raise ValueError("All mean-variance optimization methods failed")
+
+    def _validate_weights(self, weights: np.ndarray) -> bool:
+        """Validate portfolio weights"""
+        try:
+            # Check for NaN/Inf
+            if np.any(np.isnan(weights)) or np.any(np.isinf(weights)):
+                return False
+
+            # Check non-negative
+            if np.any(weights < -1e-6):  # Small tolerance for numerical errors
+                return False
+
+            # Check sum approximately equals 1
+            weight_sum = np.sum(weights)
+            if abs(weight_sum - 1.0) > 1e-3:
+                return False
+
+            # Check reasonable bounds
+            if np.any(weights > 0.8):  # No single position > 80%
+                return False
+
+            return True
+
+        except Exception:
+            return False
 
 class AdvancedPortfolioDecisionEngine:
     """Main class orchestrating advanced portfolio decisions"""
@@ -1054,6 +1210,145 @@ class AdvancedPortfolioDecisionEngine:
             validated[symbol] = decision
 
         return validated
+
+    def _regularize_covariance_matrix(self, cov_matrix: np.ndarray) -> np.ndarray:
+        """Regularize covariance matrix to ensure numerical stability"""
+        try:
+            # Check for NaN/Inf values
+            if np.any(np.isnan(cov_matrix)) or np.any(np.isinf(cov_matrix)):
+                logger.warning("Invalid covariance matrix detected, using identity matrix")
+                return np.eye(cov_matrix.shape[0]) * 0.04  # 4% volatility assumption
+
+            # Ensure symmetry
+            cov_matrix = (cov_matrix + cov_matrix.T) / 2
+
+            # Check positive definiteness
+            eigenvals = np.linalg.eigvals(cov_matrix)
+            if np.any(eigenvals <= 0):
+                logger.debug("Covariance matrix not positive definite, applying regularization")
+                # Add small value to diagonal for regularization
+                regularization = max(0.001, -np.min(eigenvals) + 0.001)
+                cov_matrix += regularization * np.eye(cov_matrix.shape[0])
+
+            # Check condition number
+            cond_num = np.linalg.cond(cov_matrix)
+            if cond_num > 1e12:
+                logger.debug(f"High condition number ({cond_num:.2e}), applying stronger regularization")
+                cov_matrix += 0.01 * np.eye(cov_matrix.shape[0])
+
+            return cov_matrix
+
+        except Exception as e:
+            logger.error(f"Covariance regularization failed: {e}")
+            n = cov_matrix.shape[0] if len(cov_matrix.shape) > 0 else 1
+            return np.eye(n) * 0.04
+
+    def _risk_parity_optimization(self, cov_matrix: np.ndarray) -> np.ndarray:
+        """Risk parity optimization - equal risk contribution"""
+        n_assets = cov_matrix.shape[0]
+
+        # Initial guess
+        x0 = np.ones(n_assets) / n_assets
+
+        def risk_parity_objective(weights):
+            # Portfolio volatility
+            portfolio_vol = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
+
+            # Marginal risk contributions
+            marginal_contrib = np.dot(cov_matrix, weights) / portfolio_vol
+
+            # Risk contributions
+            risk_contrib = weights * marginal_contrib
+
+            # Target equal risk contribution
+            target_contrib = portfolio_vol / n_assets
+
+            # Minimize deviation from equal risk contribution
+            return np.sum((risk_contrib - target_contrib) ** 2)
+
+        # Constraints
+        constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0}]
+        bounds = [(0.001, 0.5) for _ in range(n_assets)]  # Relaxed bounds
+
+        result = minimize(risk_parity_objective, x0, method='SLSQP',
+                         bounds=bounds, constraints=constraints,
+                         options={'maxiter': 500, 'ftol': 1e-9})
+
+        if result.success:
+            return result.x
+        else:
+            raise ValueError(f"Risk parity optimization failed: {result.message}")
+
+    def _mean_variance_optimization(self, expected_returns: np.ndarray, cov_matrix: np.ndarray) -> np.ndarray:
+        """Traditional mean-variance optimization with relaxed constraints"""
+        n_assets = len(expected_returns)
+
+        def objective(weights):
+            portfolio_return = np.dot(weights, expected_returns)
+            portfolio_variance = np.dot(weights, np.dot(cov_matrix, weights))
+            # Reduced risk aversion for more aggressive allocation
+            return -(portfolio_return - 1.0 * portfolio_variance)
+
+        # Relaxed constraints
+        constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0}]
+
+        # More flexible bounds
+        min_weight = max(0.001, 1.0 / (n_assets * 2))  # Dynamic minimum
+        max_weight = min(0.3, 3.0 / n_assets)  # Dynamic maximum
+        bounds = [(min_weight, max_weight) for _ in range(n_assets)]
+
+        # Better initial guess based on expected returns
+        if np.std(expected_returns) > 0:
+            # Weight by relative expected returns
+            positive_returns = np.maximum(expected_returns, 0)
+            if np.sum(positive_returns) > 0:
+                x0 = positive_returns / np.sum(positive_returns)
+            else:
+                x0 = np.ones(n_assets) / n_assets
+        else:
+            x0 = np.ones(n_assets) / n_assets
+
+        # Multiple optimization attempts with different methods
+        methods = ['SLSQP', 'trust-constr']
+
+        for method in methods:
+            try:
+                result = minimize(objective, x0, method=method, bounds=bounds,
+                                constraints=constraints, options={'maxiter': 1000})
+
+                if result.success and self._validate_weights(result.x):
+                    return result.x
+
+            except Exception as e:
+                logger.debug(f"Method {method} failed: {e}")
+                continue
+
+        raise ValueError("All mean-variance optimization methods failed")
+
+    def _validate_weights(self, weights: np.ndarray) -> bool:
+        """Validate portfolio weights"""
+        try:
+            # Check for NaN/Inf
+            if np.any(np.isnan(weights)) or np.any(np.isinf(weights)):
+                return False
+
+            # Check non-negative
+            if np.any(weights < -1e-6):  # Small tolerance for numerical errors
+                return False
+
+            # Check sum approximately equals 1
+            weight_sum = np.sum(weights)
+            if abs(weight_sum - 1.0) > 1e-3:
+                return False
+
+            # Check reasonable bounds
+            if np.any(weights > 0.8):  # No single position > 80%
+                return False
+
+            return True
+
+        except Exception:
+            return False
 
     def get_decision_summary(self) -> Dict[str, Any]:
         """Get summary of current decisions for dashboard/logging"""

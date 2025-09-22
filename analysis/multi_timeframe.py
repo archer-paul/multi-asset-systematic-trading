@@ -107,9 +107,9 @@ class MultiTimeframeAnalyzer:
         """
         valid_symbols = []
 
-        # Known problematic symbols that should be skipped
+        # More relaxed filtering - only skip truly invalid symbols
         skip_patterns = [
-            '.', '--', '???', 'N/A', '',  # Invalid formats
+            '--', '???', 'N/A',  # Removed '.' and '' to allow valid symbols
         ]
 
         # Known delisted or problematic symbols (can be expanded)
@@ -117,8 +117,15 @@ class MultiTimeframeAnalyzer:
             # Add more as discovered
         }
 
+        logger.debug(f"Starting symbol filtering for {len(symbols)} symbols: {symbols[:10]}...")
+
         for symbol in symbols:
-            if not symbol or any(pattern in symbol for pattern in skip_patterns):
+            # More lenient checking
+            if not symbol or len(symbol.strip()) == 0:
+                logger.debug(f"Skipping empty symbol: '{symbol}'")
+                continue
+
+            if any(pattern in symbol for pattern in skip_patterns):
                 logger.debug(f"Skipping invalid symbol format: {symbol}")
                 continue
 
@@ -128,6 +135,7 @@ class MultiTimeframeAnalyzer:
                 continue
 
             valid_symbols.append(symbol)
+            logger.debug(f"Added valid symbol: {symbol}")
 
         logger.info(f"Filtered {len(symbols)} symbols to {len(valid_symbols)} valid symbols")
         return valid_symbols
@@ -141,7 +149,7 @@ class MultiTimeframeAnalyzer:
         # Try to get basic info first to validate symbol
         try:
             ticker = yf.Ticker(symbol)
-            info = await asyncio.to_thread(ticker.info)
+            info = await asyncio.to_thread(lambda: ticker.info)
             if not info or info.get('regularMarketPrice') is None:
                 logger.warning(f"Symbol {symbol} appears to be invalid or delisted")
                 return timeframe_data

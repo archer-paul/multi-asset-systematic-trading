@@ -285,8 +285,16 @@ class TradingBotOrchestrator:
                 text = (news_item.get('title', '') or '') + ' ' + (news_item.get('content', '') or '')
                 sentiment_data = await self.sentiment_analyzer.analyze_financial_sentiment(text=text, company=company, region=region)
                 news_item['sentiment_data'] = sentiment_data
-                if (i + 1) % 50 == 0:
-                    self.logger.debug(f"Processed sentiment for {i + 1}/{len(news_data)} articles")
+
+                # Log Gemini usage more prominently
+                if (i + 1) % 25 == 0:  # More frequent updates
+                    avg_score = sum(item.get('sentiment_data', {}).get('sentiment_score', 0) for item in news_data[:i+1]) / (i+1)
+                    self.logger.info(f"Sentiment analysis progress: {i + 1}/{len(news_data)} articles - Average score: {avg_score:.2f}")
+
+                # Log specific insights for strong sentiments
+                score = sentiment_data.get('sentiment_score', 0)
+                if abs(score) > 0.3:  # Strong sentiment
+                    self.logger.info(f"Strong sentiment detected for {company or 'market'}: {score:.2f} - {sentiment_data.get('reasoning', '')[:100]}")
             except Exception as e:
                 self.logger.error(f"Error processing sentiment for news item {i}: {e}")
                 news_item['sentiment_data'] = {'sentiment_score': 0.0, 'confidence': 0.5, 'reasoning': 'Error in sentiment processing'}

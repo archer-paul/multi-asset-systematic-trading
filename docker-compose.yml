@@ -82,7 +82,7 @@ services:
       - ./exports:/app/exports
       - ./dashboard_data:/app/dashboard_data
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
       - postgres
       - redis
@@ -98,7 +98,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@trading.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "8080:80"
+      - "8082:80"
     depends_on:
       - postgres
     networks:

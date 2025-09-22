@@ -21,21 +21,21 @@ logger = logging.getLogger(__name__)
 INSTITUTIONAL_SOURCES = {
     # Central Banks - using more reliable endpoints
     'fed_fomc': 'https://www.federalreserve.gov/feeds/press_all.xml',
-    'fed_economic': 'https://www.federalreserve.gov/feeds/reportsandresearch.xml',
+    'ecb_press': 'https://www.ecb.europa.eu/rss/press.xml',
 
-    # Alternative economic sources with better reliability
-    'treasury_gov': 'https://www.treasury.gov/resource-center/data-chart-center/quarterly-refunding/Pages/recent-announcements.aspx',
-    'bls_news': 'https://www.bls.gov/news.release/rss/empsit.rss',
-    'census_econ': 'https://www.census.gov/economic-indicators/indicators.xml'
+    # Economic indicators
+    'bea_econ': 'https://www.bea.gov/rss/news_releases.xml',
+    'treasury_daily': 'https://www.treasury.gov/resource-center/data-chart-center/interest-rates/Pages/TextView.aspx?data=yield'
 }
 
 GEOPOLITICAL_SOURCES = {
-    # More reliable news sources
-    'reuters_econ': 'https://feeds.reuters.com/reuters/businessNews',
-    'bloomberg_econ': 'https://feeds.bloomberg.com/markets/news.rss',
-    'wsj_econ': 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml',
+    # More reliable news sources - avoiding problematic feeds
     'marketwatch': 'https://feeds.marketwatch.com/marketwatch/topstories/',
-    'seeking_alpha': 'https://seekingalpha.com/feed.xml'
+    'yahoo_finance': 'https://feeds.finance.yahoo.com/rss/2.0/headline',
+    'cnbc_economy': 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258',
+    'ft_markets': 'https://www.ft.com/markets?format=rss',
+    'ap_business': 'https://feeds.apnews.com/apnews/business',
+    'cnn_business': 'http://rss.cnn.com/rss/money_latest.rss'
 }
 
 class MacroEconomicAnalyzer:
