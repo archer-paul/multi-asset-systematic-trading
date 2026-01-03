@@ -1,5 +1,7 @@
 # Core dependencies
 pandas>=1.5.0
+gunicorn>=21.0.0
+eventlet>=0.33.0
 numpy>=1.21.0
 scikit-learn>=1.1.0
 xgboost>=1.6.0

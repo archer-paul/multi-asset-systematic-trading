@@ -563,16 +563,6 @@ This system serves as a comprehensive platform for computational finance researc
 - **Quantum Computing**: Quantum optimization algorithms for portfolio construction
 - **Federated Learning**: Collaborative model training across institutional datasets
 
-## Publications and Recognition
-
-**Conference Presentations**:
-- QuantCon 2024: "Economic Knowledge Graphs for Systemic Risk Analysis"
-- AI in Finance Summit 2024: "Transformer Architectures in Quantitative Trading"
-
-**Research Papers** (In Preparation):
-- "Multi-Source Sentiment Analysis for Alpha Generation in Equity Markets"
-- "Congressional Trading Signals as Alternative Data in Quantitative Strategies"
-
 ## License and Disclaimer
 
 This project is licensed under the MIT License.

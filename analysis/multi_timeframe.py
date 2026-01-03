@@ -34,7 +34,7 @@ class MultiTimeframeAnalyzer:
         
         # Technical indicators configuration
         self.indicators = {
-            'trend': ['SMA_20', 'SMA_50', 'EMA_12', 'EMA_26', 'MACD'],
+            'trend': ['SMA_20', 'SMA_50', 'EMA_12', 'EMA_26', 'MACD', 'ICHIMOKU'],
             'momentum': ['RSI', 'STOCH', 'WILLIAMS_R', 'CCI'],
             'volatility': ['BBANDS', 'ATR', 'VOLATILITY'],
             'volume': ['OBV', 'AD', 'VOLUME_SMA']
@@ -249,7 +249,10 @@ class MultiTimeframeAnalyzer:
                 # Volume Indicators
                 indicators['OBV'] = talib.OBV(close, volume)
                 indicators['AD'] = talib.AD(high, low, close, volume)
-                
+
+                # Ichimoku Cloud Indicators
+                indicators['ICHIMOKU'] = self._calculate_ichimoku_cloud(high, low, close)
+
                 # Custom volatility calculation
                 returns = np.log(close[1:] / close[:-1])
                 indicators['VOLATILITY'] = pd.Series(returns).rolling(20).std() * np.sqrt(252)
@@ -265,7 +268,45 @@ class MultiTimeframeAnalyzer:
                 technical_analysis[tf_name] = {'data': df, 'indicators': {}, 'latest_price': 0}
         
         return technical_analysis
-    
+
+    def _calculate_ichimoku_cloud(self, high: np.ndarray, low: np.ndarray, close: np.ndarray) -> Dict[str, np.ndarray]:
+        """
+        Calculate Ichimoku Cloud indicators
+        """
+        try:
+            # Conversion Line (Tenkan-sen): (9-period high + 9-period low) / 2
+            tenkan_high = pd.Series(high).rolling(window=9).max()
+            tenkan_low = pd.Series(low).rolling(window=9).min()
+            tenkan_sen = (tenkan_high + tenkan_low) / 2
+
+            # Base Line (Kijun-sen): (26-period high + 26-period low) / 2
+            kijun_high = pd.Series(high).rolling(window=26).max()
+            kijun_low = pd.Series(low).rolling(window=26).min()
+            kijun_sen = (kijun_high + kijun_low) / 2
+
+            # Leading Span A (Senkou Span A): (Conversion Line + Base Line) / 2, displaced 26 periods ahead
+            senkou_span_a = ((tenkan_sen + kijun_sen) / 2).shift(26)
+
+            # Leading Span B (Senkou Span B): (52-period high + 52-period low) / 2, displaced 26 periods ahead
+            senkou_high = pd.Series(high).rolling(window=52).max()
+            senkou_low = pd.Series(low).rolling(window=52).min()
+            senkou_span_b = ((senkou_high + senkou_low) / 2).shift(26)
+
+            # Lagging Span (Chikou Span): Close displaced 26 periods behind
+            chikou_span = pd.Series(close).shift(-26)
+
+            return {
+                'tenkan_sen': tenkan_sen.values,
+                'kijun_sen': kijun_sen.values,
+                'senkou_span_a': senkou_span_a.values,
+                'senkou_span_b': senkou_span_b.values,
+                'chikou_span': chikou_span.values,
+                'cloud_color': np.where(senkou_span_a > senkou_span_b, 'bullish', 'bearish')
+            }
+        except Exception as e:
+            logger.error(f"Ichimoku calculation failed: {e}")
+            return {}
+
     def _generate_timeframe_signals(self, technical_analysis: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
         """
         Generate trading signals for each timeframe
@@ -342,7 +383,34 @@ class MultiTimeframeAnalyzer:
                 if not (np.isnan(macd) or np.isnan(macd_signal)):
                     score += 1.0 if macd > macd_signal else -1.0
                     count += 1
-            
+
+            # Ichimoku Cloud trend
+            if 'ICHIMOKU' in indicators and indicators['ICHIMOKU']:
+                ichimoku = indicators['ICHIMOKU']
+                if len(ichimoku.get('tenkan_sen', [])) > 0 and len(ichimoku.get('kijun_sen', [])) > 0:
+                    tenkan = ichimoku['tenkan_sen'][-1]
+                    kijun = ichimoku['kijun_sen'][-1]
+                    if not (np.isnan(tenkan) or np.isnan(kijun)):
+                        # Tenkan above Kijun is bullish
+                        score += 1.0 if tenkan > kijun else -1.0
+                        count += 1
+
+                    # Price position relative to cloud
+                    if (len(ichimoku.get('senkou_span_a', [])) > 0 and
+                        len(ichimoku.get('senkou_span_b', [])) > 0):
+                        senkou_a = ichimoku['senkou_span_a'][-1]
+                        senkou_b = ichimoku['senkou_span_b'][-1]
+                        if not (np.isnan(senkou_a) or np.isnan(senkou_b)):
+                            cloud_top = max(senkou_a, senkou_b)
+                            cloud_bottom = min(senkou_a, senkou_b)
+
+                            if latest_price > cloud_top:
+                                score += 1.0  # Above cloud - bullish
+                            elif latest_price < cloud_bottom:
+                                score += -1.0  # Below cloud - bearish
+                            # Inside cloud is neutral (no score adjustment)
+                            count += 1
+
             return score / count if count > 0 else 0.0
             
         except Exception as e:

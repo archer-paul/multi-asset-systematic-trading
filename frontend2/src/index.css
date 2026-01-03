@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Institutional Trading Dashboard Design System */
+
+@layer base {
+  :root {
+    /* Academic institutional theme */
+    --background: 215 25% 4%;
+    --foreground: 215 20% 98%;
+
+    --card: 221 25% 8%;
+    --card-foreground: 210 40% 95%;
+
+    --popover: 221 25% 8%;
+    --popover-foreground: 210 40% 95%;
+
+    /* Professional blue primary with glow */
+    --primary: 220 80% 70%;
+    --primary-foreground: 215 25% 4%;
+
+    /* Muted slate grays */
+    --secondary: 215 20% 15%;
+    --secondary-foreground: 210 30% 85%;
+
+    --muted: 215 20% 12%;
+    --muted-foreground: 215 20% 60%;
+
+    --accent: 142 76% 36%;
+    --accent-foreground: 210 40% 98%;
+
+    /* Financial colors - red for losses */
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Professional success green */
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+
+    /* Warning amber */
+    --warning: 45 93% 47%;
+    --warning-foreground: 222 84% 4.9%;
+
+    /* Borders and inputs in darker theme */
+    --border: 215 20% 18%;
+    --input: 215 20% 15%;
+    --ring: 217 91% 55%;
+    
+    /* Professional rounded corners */
+    --radius: 0.375rem;
+
+    /* Financial data colors */
+    --profit: 142 76% 36%;
+    --loss: 0 84% 58%;
+    --neutral: 215 20% 60%;
+    
+    /* Academic gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(220 80% 70%), hsl(220 85% 80%));
+    --gradient-success: linear-gradient(135deg, hsl(140 60% 55%), hsl(160 70% 45%));
+    --gradient-danger: linear-gradient(135deg, hsl(0 75% 60%), hsl(15 80% 55%));
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(215 20% 8%));
+    
+    /* Chart colors for professional financial visualization */
+    --chart-1: 217 91% 55%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 45 93% 47%;
+    --chart-4: 270 95% 60%;
+    --chart-5: 0 84% 58%;
+    
+    /* Sharp institutional shadows */
+    --shadow-institutional: 0 12px 40px -12px hsla(220 80% 70%, 0.4);
+    --shadow-card: 0 6px 20px -6px rgba(0, 0, 0, 0.6);
+    --shadow-glow: 0 0 30px hsla(220 80% 70%, 0.3);
+    --shadow-sharp: 0 2px 8px rgba(0, 0, 0, 0.8);
+    
+    /* Performance metrics colors */
+    --high-performance: 142 76% 36%;
+    --medium-performance: 45 93% 47%;
+    --low-performance: 0 84% 58%;
+    
+    /* Status indicators */
+    --status-online: 142 76% 36%;
+    --status-warning: 45 93% 47%;
+    --status-offline: 0 84% 58%;
+    
+    /* Typography scale for financial data */
+    --font-mono: 'JetBrains Mono', 'Roboto Mono', 'Courier New', monospace;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .light {
+    /* Light mode is not prioritized for this institutional dashboard */
+    --background: 210 40% 98%;
+    --foreground: 222 25% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 25% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 25% 10%;
+    --primary: 217 91% 55%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 25% 10%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 20% 40%;
+    --accent: 142 76% 36%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 31% 91%;
+    --input: 214 31% 91%;
+    --ring: 217 91% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  /* Scrollbar styling for institutional look */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer components {
+  /* Financial metric display */
+  .metric-card {
+    @apply bg-card border border-border rounded-lg p-4 shadow-sm;
+  }
+  
+  .metric-positive {
+    @apply text-green-400;
+  }
+  
+  .metric-negative {
+    @apply text-red-400;
+  }
+  
+  .metric-neutral {
+    @apply text-muted-foreground;
+  }
+  
+  /* Data tables for financial information */
+  .data-table {
+    @apply w-full text-sm;
+  }
+  
+  .data-table th {
+    @apply font-medium text-muted-foreground text-left py-2 px-3 border-b border-border;
+  }
+  
+  .data-table td {
+    @apply py-2 px-3 border-b border-border/50;
+  }
+  
+  /* Status indicators */
+  .status-online {
+    @apply w-2 h-2 bg-green-400 rounded-full;
+  }
+  
+  .status-warning {
+    @apply w-2 h-2 bg-yellow-400 rounded-full;
+  }
+  
+  .status-offline {
+    @apply w-2 h-2 bg-red-400 rounded-full;
+  }
+  
+  /* Compact metric display */
+  .metric-compact {
+    @apply flex items-center justify-between text-xs;
+  }
+  
+  .metric-label {
+    @apply text-muted-foreground uppercase tracking-wide;
+  }
+  
+  .metric-value {
+    @apply font-mono font-semibold;
+  }
+}
