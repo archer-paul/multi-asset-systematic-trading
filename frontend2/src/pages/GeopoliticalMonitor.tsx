@@ -41,10 +41,112 @@ export default function GeopoliticalMonitor() {
                 <div className="text-sm text-muted-foreground">Active Monitors</div>
               </div>
             </div>
-            <div className="h-48 bg-muted/20 rounded-lg flex items-center justify-center border border-border/50">
-              <div className="text-muted-foreground flex items-center gap-2">
-                <Globe className="w-4 h-4" />
-                <span className="text-sm">Global Risk Heatmap</span>
+            <div className="h-64 bg-muted/20 rounded-lg relative overflow-hidden border border-border/50 group">
+              {/* Background Map Image */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-40 mix-blend-overlay">
+                 <img 
+                   src="/world-map.svg" 
+                   alt="World Map" 
+                   className="w-full h-full object-cover"
+                   style={{ 
+                     filter: 'invert(1) hue-rotate(180deg) brightness(0.6) contrast(1.2)',
+                     objectPosition: 'center 60%' // Center slightly lower to focus on relevant landmasses
+                   }}
+                 />
+              </div>
+
+              {/* Animation Styles */}
+              <style>
+                {`
+                  @keyframes pulse-ring {
+                    0% { transform: scale(0.8); opacity: 0.5; }
+                    100% { transform: scale(2.5); opacity: 0; }
+                  }
+                  .hotspot-container {
+                    position: absolute;
+                    transform: translate(-50%, -50%);
+                  }
+                  .hotspot-ring {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 16px;
+                    height: 16px;
+                    border: 1px solid #EF4444;
+                    border-radius: 50%;
+                    transform: translate(-50%, -50%);
+                    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+                  }
+                  .hotspot-dot {
+                    width: 8px;
+                    height: 8px;
+                    background-color: #EF4444;
+                    border-radius: 50%;
+                    box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+                  }
+                  .hotspot-label {
+                    position: absolute;
+                    top: -20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    font-size: 10px;
+                    font-weight: bold;
+                    color: #EF4444;
+                    white-space: nowrap;
+                    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+                    opacity: 0;
+                    transition: opacity 0.2s;
+                    pointer-events: none;
+                  }
+                  .hotspot-container:hover .hotspot-label {
+                    opacity: 1;
+                  }
+                `}
+              </style>
+
+              {/* Hotspots Overlay */}
+              <div className="absolute inset-0" style={{ top: '10%' }}> {/* Adjusted top offset for projection alignment */}
+                
+                {/* Venezuela (approx 31.6% L, 44.4% T) */}
+                <div className="hotspot-container" style={{ left: '29%', top: '52%' }}>
+                  <div className="hotspot-ring"></div>
+                  <div className="hotspot-dot"></div>
+                  <div className="hotspot-label">Venezuela</div>
+                </div>
+
+                {/* Iran (approx 64.7% L, 32.2% T) */}
+                <div className="hotspot-container" style={{ left: '62%', top: '38%' }}>
+                  <div className="hotspot-ring"></div>
+                  <div className="hotspot-dot"></div>
+                  <div className="hotspot-label">Iran</div>
+                </div>
+
+                {/* North Korea (approx 85.3% L, 27.8% T) */}
+                <div className="hotspot-container" style={{ left: '82%', top: '35%' }}>
+                  <div className="hotspot-ring"></div>
+                  <div className="hotspot-dot"></div>
+                  <div className="hotspot-label">North Korea</div>
+                </div>
+
+                {/* India-China Border (approx 71.7% L, 31.1% T) */}
+                <div className="hotspot-container" style={{ left: '72%', top: '38%' }}>
+                  <div className="hotspot-ring"></div>
+                  <div className="hotspot-dot"></div>
+                  <div className="hotspot-label">Ind-Chi Border</div>
+                </div>
+
+              </div>
+
+              {/* Legend */}
+              <div className="absolute bottom-2 right-2 flex gap-4 text-xs bg-background/80 p-2 rounded border border-border/50 backdrop-blur-sm">
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                  <span className="text-muted-foreground">Conflict Zone</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-slate-600"></span>
+                  <span className="text-muted-foreground">Stable</span>
+                </div>
               </div>
             </div>
           </Card>

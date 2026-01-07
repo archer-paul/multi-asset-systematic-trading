@@ -54,32 +54,30 @@ const sectorColors = {
   }
 };
 
-// Mock data détaillé avec holdings individuelles
+// Mock data détaillé avec holdings individuelles (Small Portfolio ~$5,200)
 const mockDetailedHoldings = [
   // Technology
-  { symbol: 'AAPL', company: 'Apple Inc.', sector: 'Technology', shares: 1200, price: 185.50, value: 222600, weight: 8.9 },
-  { symbol: 'MSFT', company: 'Microsoft Corp.', sector: 'Technology', shares: 800, price: 375.25, value: 300200, weight: 12.0 },
-  { symbol: 'GOOGL', company: 'Alphabet Inc.', sector: 'Technology', shares: 600, price: 145.80, value: 87480, weight: 3.5 },
-  { symbol: 'NVDA', company: 'NVIDIA Corp.', sector: 'Technology', shares: 400, price: 875.30, value: 350120, weight: 14.0 },
-  { symbol: 'TSLA', company: 'Tesla Inc.', sector: 'Technology', shares: 300, price: 248.75, value: 74625, weight: 3.0 },
+  { symbol: 'NVDA', company: 'NVIDIA Corp.', sector: 'Technology', shares: 1, price: 875.30, value: 875.30, weight: 16.8 },
+  { symbol: 'MSFT', company: 'Microsoft Corp.', sector: 'Technology', shares: 2, price: 375.25, value: 750.50, weight: 14.4 },
+  { symbol: 'AAPL', company: 'Apple Inc.', sector: 'Technology', shares: 3, price: 185.50, value: 556.50, weight: 10.7 },
+  { symbol: 'GOOGL', company: 'Alphabet Inc.', sector: 'Technology', shares: 2, price: 145.80, value: 291.60, weight: 5.6 },
 
   // Healthcare
-  { symbol: 'JNJ', company: 'Johnson & Johnson', sector: 'Healthcare', shares: 1500, price: 165.40, value: 248100, weight: 9.9 },
-  { symbol: 'PFE', company: 'Pfizer Inc.', sector: 'Healthcare', shares: 2000, price: 28.90, value: 57800, weight: 2.3 },
-  { symbol: 'UNH', company: 'UnitedHealth Group', sector: 'Healthcare', shares: 400, price: 520.75, value: 208300, weight: 8.3 },
+  { symbol: 'UNH', company: 'UnitedHealth Group', sector: 'Healthcare', shares: 1, price: 520.75, value: 520.75, weight: 10.0 },
+  { symbol: 'JNJ', company: 'Johnson & Johnson', sector: 'Healthcare', shares: 2, price: 165.40, value: 330.80, weight: 6.3 },
+  { symbol: 'PFE', company: 'Pfizer Inc.', sector: 'Healthcare', shares: 8, price: 28.90, value: 231.20, weight: 4.4 },
 
   // Financial
-  { symbol: 'JPM', company: 'JPMorgan Chase', sector: 'Financial', shares: 800, price: 155.20, value: 124160, weight: 5.0 },
-  { symbol: 'BAC', company: 'Bank of America', sector: 'Financial', shares: 1200, price: 35.80, value: 42960, weight: 1.7 },
-  { symbol: 'BRK.B', company: 'Berkshire Hathaway', sector: 'Financial', shares: 300, price: 445.60, value: 133680, weight: 5.3 },
+  { symbol: 'JPM', company: 'JPMorgan Chase', sector: 'Financial', shares: 3, price: 155.20, value: 465.60, weight: 8.9 },
+  { symbol: 'BAC', company: 'Bank of America', sector: 'Financial', shares: 10, price: 35.80, value: 358.00, weight: 6.9 },
 
   // Consumer Discretionary
-  { symbol: 'AMZN', company: 'Amazon.com Inc.', sector: 'Consumer Discretionary', shares: 500, price: 155.40, value: 77700, weight: 3.1 },
-  { symbol: 'HD', company: 'Home Depot Inc.', sector: 'Consumer Discretionary', shares: 400, price: 385.20, value: 154080, weight: 6.2 },
+  { symbol: 'AMZN', company: 'Amazon.com Inc.', sector: 'Consumer Discretionary', shares: 2, price: 155.40, value: 310.80, weight: 6.0 },
+  { symbol: 'TSLA', company: 'Tesla Inc.', sector: 'Consumer Discretionary', shares: 1, price: 248.75, value: 248.75, weight: 4.8 },
 
   // Energy
-  { symbol: 'XOM', company: 'Exxon Mobil Corp.', sector: 'Energy', shares: 1000, price: 115.75, value: 115750, weight: 4.6 },
-  { symbol: 'CVX', company: 'Chevron Corp.', sector: 'Energy', shares: 600, price: 158.90, value: 95340, weight: 3.8 }
+  { symbol: 'CVX', company: 'Chevron Corp.', sector: 'Energy', shares: 1, price: 158.90, value: 158.90, weight: 3.0 },
+  { symbol: 'XOM', company: 'Exxon Mobil Corp.', sector: 'Energy', shares: 1, price: 115.75, value: 115.75, weight: 2.2 }
 ];
 
 interface HoldingData {
@@ -204,28 +202,7 @@ export function EnhancedPortfolioHoldings() {
     return null;
   };
 
-  const CustomPieCell = (props: any) => {
-    const { payload } = props;
-    const isHovered = hoveredSegment === payload.name;
-    const scale = isHovered ? 1.05 : 1;
-    const opacity = hoveredSegment && !isHovered ? 0.6 : 1;
 
-    return (
-      <Cell
-        {...props}
-        fill={payload.color}
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: 'center',
-          opacity: opacity,
-          transition: 'all 0.2s ease-in-out',
-          filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
-        }}
-        onMouseEnter={() => setHoveredSegment(payload.name)}
-        onMouseLeave={() => setHoveredSegment(null)}
-      />
-    );
-  };
 
   const getDetailedInfo = () => {
     if (selectedDetail === 'overview') {
@@ -319,9 +296,28 @@ export function EnhancedPortfolioHoldings() {
                     dataKey="value"
                     stroke="none"
                   >
-                    {currentChartData.map((entry, index) => (
-                      <CustomPieCell key={`cell-${index}`} payload={entry} />
-                    ))}
+                    {currentChartData.map((entry, index) => {
+                      const isHovered = hoveredSegment === entry.name;
+                      const scale = isHovered ? 1.05 : 1;
+                      const opacity = hoveredSegment && !isHovered ? 0.6 : 1;
+                      
+                      return (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.color}
+                          stroke="none"
+                          style={{
+                            transform: `scale(${scale})`,
+                            transformOrigin: 'center',
+                            opacity: opacity,
+                            transition: 'all 0.2s ease-in-out',
+                            filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
+                          }}
+                          onMouseEnter={() => setHoveredSegment(entry.name)}
+                          onMouseLeave={() => setHoveredSegment(null)}
+                        />
+                      );
+                    })}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
                 </PieChart>

@@ -24,7 +24,7 @@ export default function RiskAnalytics() {
         <div className="grid grid-cols-12 gap-4 mb-6">
           <Card className="col-span-8 p-6">
             <h2 className="text-xl font-semibold mb-4">Portfolio Risk Assessment</h2>
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-3xl font-mono font-bold text-yellow-400">$4,267</div>
                 <div className="text-sm text-muted-foreground">1-Day VaR (95%)</div>
@@ -41,9 +41,6 @@ export default function RiskAnalytics() {
                 <div className="text-3xl font-mono font-bold text-green-400">Low</div>
                 <div className="text-sm text-muted-foreground">Risk Grade</div>
               </div>
-            </div>
-            <div className="h-48 bg-muted/20 rounded-lg p-4">
-              <VaRChart />
             </div>
           </Card>
 
@@ -74,6 +71,11 @@ export default function RiskAnalytics() {
               compact
             />
           </div>
+        </div>
+
+        {/* Charts Section */}
+        <div className="mb-6">
+          <VaRChart />
         </div>
 
         {/* Risk Metrics Grid */}

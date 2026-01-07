@@ -4,17 +4,17 @@ import { PieChart as PieChartIcon, TrendingUp, TrendingDown } from "lucide-react
 import { useQuery } from "@tanstack/react-query";
 import { apiClient, type PortfolioHoldings } from "@/lib/api";
 
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280'];
+
 // Mock data as fallback
 const mockHoldingsData = [
-  { sector: 'Technology', value: 450000, weight: 45, color: '#3B82F6', stocks: ['AAPL', 'MSFT', 'GOOGL'] },
-  { sector: 'Healthcare', value: 200000, weight: 20, color: '#10B981', stocks: ['JNJ', 'PFE', 'UNH'] },
-  { sector: 'Financial', value: 150000, weight: 15, color: '#F59E0B', stocks: ['JPM', 'BAC', 'GS'] },
-  { sector: 'Consumer Disc.', value: 100000, weight: 10, color: '#EF4444', stocks: ['TSLA', 'AMZN', 'NFLX'] },
-  { sector: 'Energy', value: 50000, weight: 5, color: '#8B5CF6', stocks: ['XOM', 'CVX', 'COP'] },
-  { sector: 'Other', value: 50000, weight: 5, color: '#6B7280', stocks: ['Various'] }
+  { sector: 'Technology', value: 2475, weight: 45, color: COLORS[0], stocks: ['AAPL', 'MSFT', 'GOOGL'] },
+  { sector: 'Healthcare', value: 1100, weight: 20, color: COLORS[1], stocks: ['JNJ', 'PFE', 'UNH'] },
+  { sector: 'Financial', value: 825, weight: 15, color: COLORS[2], stocks: ['JPM', 'BAC', 'GS'] },
+  { sector: 'Consumer Disc.', value: 550, weight: 10, color: COLORS[3], stocks: ['TSLA', 'AMZN', 'NFLX'] },
+  { sector: 'Energy', value: 275, weight: 5, color: COLORS[4], stocks: ['XOM', 'CVX', 'COP'] },
+  { sector: 'Other', value: 275, weight: 5, color: COLORS[5], stocks: ['Various'] }
 ];
-
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280'];
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -70,86 +70,203 @@ const CustomLabelContent = ({ cx, cy, midAngle, innerRadius, outerRadius, percen
 };
 
 export function PortfolioHoldingsPieChart() {
+
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280'];
+
+  
+
+  // Hardcoded mock data to ensure integrity for this test
+
+  const localMockData = [
+
+    { sector: 'Technology', value: 2475, weight: 45 },
+
+    { sector: 'Healthcare', value: 1100, weight: 20 },
+
+    { sector: 'Financial', value: 825, weight: 15 },
+
+    { sector: 'Consumer Disc.', value: 550, weight: 10 },
+
+    { sector: 'Energy', value: 275, weight: 5 },
+
+    { sector: 'Other', value: 275, weight: 5 }
+
+  ];
+
+
+
   const { data: holdingsData, isLoading, error } = useQuery({
+
     queryKey: ['portfolio-holdings'],
+
     queryFn: async () => {
+
       const result = await apiClient.getPortfolioHoldings();
-      return result.data || {
-        holdings: [],
-        sector_allocation: {
-          'Technology': { value: 450000, weight: 0.45 },
-          'Healthcare': { value: 200000, weight: 0.20 },
-          'Financial': { value: 150000, weight: 0.15 },
-          'Consumer Disc.': { value: 100000, weight: 0.10 },
-          'Energy': { value: 50000, weight: 0.05 },
-          'Other': { value: 50000, weight: 0.05 }
-        },
-        total_value: 1000000,
-        last_updated: new Date().toISOString()
-      } as PortfolioHoldings;
+
+      if (result.data && result.data.holdings && result.data.holdings.length > 0) {
+
+        return result.data;
+
+      } else {
+
+        return {
+
+          holdings: [],
+
+          sector_allocation: {
+
+            'Technology': { value: 2475, weight: 0.45 },
+
+            'Healthcare': { value: 1100, weight: 0.20 },
+
+            'Financial': { value: 825, weight: 0.15 },
+
+            'Consumer Disc.': { value: 550, weight: 0.10 },
+
+            'Energy': { value: 275, weight: 0.05 },
+
+            'Other': { value: 275, weight: 0.05 }
+
+          },
+
+          total_value: 5500,
+
+          last_updated: new Date().toISOString()
+
+        } as PortfolioHoldings;
+
+      }
+
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+
+    refetchInterval: 30000,
+
     retry: false,
+
   });
 
-  // Transform API data or use mock data
-  const chartData = holdingsData?.sector_allocation
-    ? Object.entries(holdingsData.sector_allocation).map(([sector, data], index) => ({
+
+
+  // Force rebuild of chartData with explicit colors
+
+  const rawData = holdingsData?.sector_allocation
+
+    ? Object.entries(holdingsData.sector_allocation).map(([sector, data]) => ({
+
         sector,
+
         value: data.value,
-        weight: data.weight * 100,
-        color: COLORS[index % COLORS.length],
-        stocks: holdingsData.holdings
-          .filter(holding => holding.sector === sector)
-          .map(holding => holding.symbol)
-          .slice(0, 3)
+
+        weight: data.weight * 100
+
       }))
-    : mockHoldingsData;
+
+    : localMockData;
+
+
+
+  const chartData = rawData.map((item, index) => ({
+
+    ...item,
+
+    color: COLORS[index % COLORS.length]
+
+  }));
+
+
 
   const totalValue = chartData.reduce((sum, item) => sum + item.value, 0);
+
   const topSector = chartData.reduce((max, item) => item.value > max.value ? item : max, chartData[0]);
 
+
+
   return (
+
     <Card className="h-full">
+
       <CardHeader>
+
         <CardTitle className="flex items-center gap-2">
+
           <PieChartIcon className="w-5 h-5" />
+
           Portfolio Holdings by Sector
+
         </CardTitle>
+
       </CardHeader>
+
       <CardContent>
+
         {isLoading ? (
+
           <div className="h-64 flex items-center justify-center">
+
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+
           </div>
+
         ) : error ? (
+
           <div className="h-64 flex items-center justify-center text-muted-foreground">
+
             <p>Error loading portfolio data</p>
+
           </div>
+
         ) : (
+
           <>
+
             <div className="h-64">
+
               <ResponsiveContainer width="100%" height="100%">
+
                 <PieChart>
+
                   <Pie
+
                     data={chartData}
+
                     cx="50%"
+
                     cy="50%"
-                    labelLine={false}
-                    label={CustomLabelContent}
+
+                    innerRadius={60}
+
                     outerRadius={80}
-                    innerRadius={25} // Modern donut chart style
-                    fill="#8884d8"
+
+                    paddingAngle={2}
+
                     dataKey="value"
-                    stroke="none"
+
+                    fill="red" // Diagnostic: if this shows red, Cells are ignored. If grey, CSS overrides.
+
                   >
+
                     {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+
+                      <Cell 
+
+                        key={`cell-${index}`} 
+
+                        fill={entry.color} 
+
+                        stroke={entry.color}
+
+                      />
+
                     ))}
+
                   </Pie>
+
                   <Tooltip content={<CustomTooltip />} />
+
                 </PieChart>
+
               </ResponsiveContainer>
+
             </div>
 
             {/* Summary Statistics */}
